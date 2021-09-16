@@ -1,0 +1,375 @@
+#!/bin/bash
+#
+# [QuickBox ARM64 Flexget Updater]
+#
+# GitHub:   https://github.com/amefs/quickbox-arm64
+# Author:   Amefs
+# Current version:  v1.0.0
+# URL:
+# Original Repo:    https://github.com/QuickBox/QB
+# Credits to:       QuickBox.io
+#
+#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
+#
+#   You may copy, distribute and modify the software as long as you track
+#   changes/dates in source files. Any modifications to our software
+#   including (via compiler) GPL-licensed code must also be made available
+#   under the GPL along with build & install instructions.
+#
+#################################################################################
+#################################################################################
+# CORE VARIABLE
+#################################################################################
+CODENAME=$(lsb_release -cs)
+
+################################################################################
+# HELP FUNCTIONS
+################################################################################
+export NEWT_COLORS='
+root=,black
+window=,lightgray
+shadow=,color8
+title=color8,
+checkbox=,magenta
+entry=,color8
+label=blue,
+actlistbox=,magenta
+actsellistbox=,magenta
+helpline=,magenta
+roottext=,magenta
+emptyscale=magenta
+disabledentry=magenta,
+'
+
+_norm=$(tput sgr0)
+_red=$(tput setaf 1)
+_green=$(tput setaf 2)
+_tan=$(tput setaf 3)
+_cyan=$(tput setaf 6)
+
+function _execute() {
+	($1 >>"${OUTTO}" 2>&1)
+}
+function _print() {
+	printf "${_norm}%s${_norm}\n" "$@"
+	printf "%s\n" "$@" >>"${OUTTO}"
+}
+function _info() {
+	printf "${_cyan}➜ %s${_norm}\n" "$@"
+	printf ">> Info: %s\n" "$@" >>"${OUTTO}"
+}
+function _success() {
+	printf "${_green}✓ %s${_norm}\n" "$@"
+	printf ">> Success: %s\n" "$@" >>"${OUTTO}"
+}
+function _warning() {
+	printf "${_tan}⚠ %s${_norm}\n" "$@"
+	printf ">> Warning: %s\n" "$@" >>"${OUTTO}"
+}
+function _error() {
+	printf "${_red}✗ %s${_norm}\n" "$@"
+	printf ">> Error: %s\n" "$@" >>"${OUTTO}"
+}
+
+function _version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
+#################################################################################
+# APP VARIABLE
+#################################################################################
+APP_TITLE="FlexGet"
+APP_NAME="flexget"
+APP_SERVICE="flexget"
+APP_BASEDEPS="python3-pip"
+
+OUTTO=/srv/dashboard/db/output.log
+username=$(cat /root/.admin.info | cut -d: -f1)
+APP_LOCK=.${username}.${APP_NAME}.lock
+
+################################################################################
+# SCRIPT FUNCTIONS
+################################################################################
+function _usage() {
+	echo -e "\nQuickBox ARM64 $APP_TITLE Updater"
+	echo -e "\nUsage: \n$(basename "$0") [-h] [-l logfile] [-u username]"
+	echo -e "\nOptions:\n"
+	echo "-l, --log <logfile>       specific log file"
+	echo "-u, --user <username>     the user for this updater"
+	echo ""
+	echo "-h, --help                display this help and exit"
+}
+################################################################################
+# REMOVE FUNCTIONS
+################################################################################
+function _lockCheck() {
+	if [[ ! -f /install/.pyenv.lock ]]; then
+		_warning "Automatically install pyenv... "
+		bash /usr/local/bin/quickbox/package/install/installpackage-pyenv
+	fi
+	if [[ -f "/install/.install.lock" ]]; then
+		prevApp=$(cat /install/.install.lock)
+		_info "$prevApp process running."
+		_info "If you believe this to be in error, please manually remove the /install/.install.lock"
+		_error "Exiting..."
+		exit 1
+	fi
+	if [[ ! -f "/install/$APP_LOCK" ]]; then
+		_error "${APP_TITLE} haven't installed ..."
+		exit 1
+	fi
+}
+function _setLock() {
+	echo "${APP_TITLE}" >/install/.install.lock
+}
+function _lockCleanup() {
+	rm -f /install/.install.lock
+}
+
+function _updateInfo() {
+	_print "
+$APP_TITLE will now be updated.
+
+This process may take a few minutes
+Please wait until the process is completed
+"
+}
+
+function _installSystemUpdates() {
+	_info "Checking and performing updates to system... "
+	DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >/dev/null 2>&1
+	DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade >/dev/null 2>&1
+	## auto solve lock
+	if [ "$?" -eq 2 ]; then
+		_warning "dpkg database is locked."
+		_info "fixing dpkg lock..."
+		rm -f /var/lib/dpkg/updates/0*
+		locks=$(find /var/lib/dpkg/lock* && find /var/cache/apt/archives/lock*)
+		if [[ ${locks} == $(find /var/lib/dpkg/lock* && find /var/cache/apt/archives/lock*) ]]; then
+			for l in ${locks}; do
+				rm -rf ${l}
+			done
+			_execute "dpkg --configure -a"
+			DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >/dev/null 2>&1
+			DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade >/dev/null 2>&1
+		fi
+		if ! (apt-get check >/dev/null); then
+			apt-get install -f >>"${OUTTO}" 2>&1
+			if ! (apt-get check >/dev/null); then
+				whiptail --title "$ERROR_TITLE_INSTALL" --msgbox "$ERROR_TEXT_INSTALL_1" --ok-button "$BUTTON_OK" 8 72
+				exit 1
+			fi
+		fi
+	fi
+	_success "System updated."
+}
+
+function _installDepends() {
+	_info "Installing ${APP_TITLE} dependencies..."
+	local DEPLIST="${APP_BASEDEPS}"
+	for depend in $DEPLIST; do
+		_info "Installing ${depend}... "
+		_execute "apt-get -y --allow-unauthenticated -f install ${depend}" || { _error "Could not install ${depend}." && dependError=1; }
+	done
+	if [[ $dependError != "1" ]]; then
+		_success "${APP_TITLE} dependencies installed."
+	else
+		_error "${APP_TITLE} dependencies failed to install."
+		exit 1
+	fi
+}
+
+function _installPy(){
+	version=$1
+	major_version=$(echo ${version}| cut -d. -f1)
+	source /root/.bash_pyenv
+	versions=$(/opt/pyenv/bin/pyenv versions)
+	if [[ ! $versions =~ $version ]]; then
+	_info "Preparing Python $version. This may take some time ... "
+		_execute "/opt/pyenv/bin/pyenv install $version"
+		_success "Python ${version} installed"
+		if [[ ${major_version} == "2" ]]; then
+			_execute "/opt/pyenv/versions/${version}/bin/python${major_version} -m pip install virtualenv"
+			_success "Python ${version} virtualenv installed"
+		fi
+	else
+		_success "Python ${version} already installed"
+	fi
+}
+
+function _initPyVenv() {
+	version=$1
+	major_version=$(echo ${version}| cut -d. -f1)
+	path=$2
+	user=$3
+	mkdir -p ${path}
+	source /root/.bash_pyenv
+	if [[ ${major_version} == "2" ]]; then
+		_execute "/opt/pyenv/versions/${version}/bin/python${major_version} -m virtualenv $path"
+	elif [[ ${major_version} == "3" ]]; then
+		_execute "/opt/pyenv/versions/${version}/bin/python3 -m venv $path"
+	fi
+	chown -R ${user}.${user} $path
+	_success "Python virtual environment setup finished"
+}
+
+function _updateApp() {
+	_info "Stop old ${APP_TITLE}..."
+	_execute "systemctl disable ${APP_SERVICE}@${username}"
+	_execute "systemctl stop ${APP_SERVICE}@${username}"
+	_info "Uninstall old ${APP_TITLE}..."
+	if [[ ! -f /install/.pyenv.lock ]]; then
+		su ${username} -c 'python2 -m pip uninstall flexget -y' >>"${OUTTO}" 2>&1
+		su ${username} -c 'python3 -m pip uninstall flexget -y' >>"${OUTTO}" 2>&1
+		if [[ -f /install/.transmission.lock ]]; then
+			_execute 'python2 -m pip uninstall transmission-rpc -y'
+			_execute 'python3 -m pip uninstall transmission-rpc -y'
+		fi
+		if [[ -f /install/.deluge.lock ]]; then
+			_execute 'python2 -m pip uninstall deluge-client -y'
+			_execute 'python3 -m pip uninstall deluge-client -y'
+		fi
+	else
+		rm -rf /home/${username}/.local/flexget3
+	fi
+	_info "Building ${APP_TITLE}..."
+	# Install for single user
+	_installPy 3.7.7
+	_initPyVenv 3.7.7 /home/${username}/.local/flexget3 ${username}
+	cd /home/${username}/.local/flexget3
+	_info "Installing requirements... "
+	sudo -u ${username} -H bash -c "wget -q -O get-pip.py https://bootstrap.pypa.io/get-pip.py" >>"${OUTTO}" 2>&1
+	sudo -u ${username} -H bash -c "/home/${username}/.local/flexget3/bin/python get-pip.py --force-reinstall" >>"${OUTTO}" 2>&1
+	sudo -u ${username} -H bash -c "/home/${username}/.local/flexget3/bin/pip install --upgrade pip" >>"${OUTTO}" 2>&1
+	# Lock setuptools version for flexget installation
+	#_execute 'pip3 install setuptools==45.3.0'
+	sudo -u ${username} -H bash -c "/home/${username}/.local/flexget3/bin/pip install --upgrade pyopenssl" >>"${OUTTO}" 2>&1
+	sudo -u ${username} -H bash -c "/home/${username}/.local/flexget3/bin/pip install --upgrade cryptography" >>"${OUTTO}" 2>&1
+	_info "Installing ${APP_TITLE}... "
+	sudo -u ${username} -H bash -c "/home/${username}/.local/flexget3/bin/pip install --upgrade flexget" >>"${OUTTO}" 2>&1
+	if [[ -f /install/.transmission.lock ]]; then
+		sudo -u ${username} -H bash -c "/home/${username}/.local/flexget3/bin/pip install transmission-rpc" >>"${OUTTO}" 2>&1
+	fi
+	if [[ -f /install/.deluge.lock ]]; then
+		sudo -u ${username} -H bash -c "/home/${username}/.local/flexget3/bin/pip install deluge-client" >>"${OUTTO}" 2>&1
+	fi
+	_success "${APP_TITLE} Built."
+}
+
+function _reconfigureApp() {
+	_info "Configuring ${APP_TITLE}..."
+	pypath=/home/${username}/.local/flexget3
+	pybin=/home/${username}/.local/flexget3/bin
+	pylib=/home/${username}/.local/flexget3/lib
+	mkdir -p /tmp/
+	cat >/tmp/flexget-user-passwd.patch <<'EOF'
+diff -Nur '--exclude=.git' '--exclude=.vs' flexget/webserver.py flexget-patched/webserver.py
+--- flexget/webserver.py	2019-07-02 18:07:23.109855300 +0200
++++ flexget-patched/webserver.py	2019-07-02 20:44:50.134619000 +0200
+@@ -232,7 +232,7 @@
+ 
+ 
+ @with_session
+-def get_user(username='flexget', session=None):
++def get_user(username='replace', session=None):
+     user = session.query(User).filter(User.name == username).first()
+     if not user:
+         user = User()
+@@ -242,8 +242,9 @@
+ 
+ 
+ @with_session
+-def change_password(username='flexget', password='', session=None):
++def change_password(username='replace', password='', session=None):
+     check = zxcvbn.zxcvbn(password, user_inputs=[username])
++    check['score'] = 4
+     if check['score'] < 3:
+         warning = check['feedback']['warning']
+         suggestions = ' '.join(check['feedback']['suggestions'])
+@@ -260,7 +261,7 @@
+ 
+ 
+ @with_session
+-def generate_token(username='flexget', session=None):
++def generate_token(username='replace', session=None):
+     user = get_user(username=username, session=session)
+     user.token = generate_key()
+     session.commit()
+EOF
+	sed -i "s/username='replace'/username='${username}'/g" /tmp/flexget-user-passwd.patch
+	patch -p1 -d ${pylib}/python3.7/site-packages/flexget/ </tmp/flexget-user-passwd.patch >>"${OUTTO}" 2>&1
+	sudo -u ${username} -H bash -c "${pybin}/python -m compileall ${pylib}/python3.7/site-packages/flexget/webserver.py" >>"${OUTTO}" 2>&1
+	rm -rf /tmp/flexget-user-passwd.patch
+	jspath=$(grep -rnw "${pylib}/python3.7/site-packages/flexget/ui/v2/dist/assets/" -e '"flexget"' | cut -d: -f1)
+	sed -i "s/initialValues:{username:\"flexget\"/initialValues:{username:\"\"/g" ${jspath}
+
+	PORT=$(cat /install/$username.flexget.port)
+	cat >/etc/nginx/apps/${username}.flexget.conf <<EOF
+location /flexget/ {
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_pass http://127.0.0.1:${PORT}/flexget/;
+}
+EOF
+
+	cat >/etc/systemd/system/flexget@${username}.service <<EOF
+[Unit]
+Description=Flexget Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=${username}
+Group=${username}
+UMask=000
+WorkingDirectory=/home/${username}/.config/flexget/
+ExecStart=${pybin}/flexget -c /home/${username}/.config/flexget/config.yml daemon start
+ExecStop=${pybin}/flexget -c /home/${username}/.config/flexget/config.yml daemon stop
+ExecReload=${pybin}/flexget -c /home/${username}/.config/flexget/config.yml daemon reload
+
+[Install]
+WantedBy=multi-user.target
+EOF
+	_execute "systemctl daemon-reload"
+	_execute "systemctl enable ${APP_SERVICE}@${username}"
+	_execute "systemctl start ${APP_SERVICE}@${username}"
+	_execute "nginx -s reload"
+	_success "${APP_TITLE} configured."
+}
+
+#################################################################################
+# OPT GENERATOR
+#################################################################################
+if ! ARGS=$(getopt -a -o hl:u: -l help,log:,user: -- "$@")
+then
+    _usage
+    exit 1
+fi
+eval set -- "${ARGS}"
+while true; do
+	case "$1" in
+	-h | --help)
+		_usage
+		exit 1
+		;;
+	-l | --log)
+		OUTTO="$2"
+		shift
+		;;
+	-u | --user)
+		username="$2"
+		shift
+		;;
+	--)
+		shift
+		break
+		;;
+	esac
+	shift
+done
+
+#################################################################################
+# MAIN PROCESS
+#################################################################################
+_lockCheck
+_setLock
+_updateInfo
+_updateApp
+_reconfigureApp
+_lockCleanup

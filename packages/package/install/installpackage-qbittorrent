@@ -1,0 +1,966 @@
+#!/bin/bash
+#
+# [QuickBox ARM64 qBittorrent Installer]
+#
+# GitHub:   https://github.com/amefs/quickbox-arm64
+# Author:   Amefs
+# Current version:  v1.0.0
+# URL:
+# Original Repo:    https://github.com/QuickBox/QB
+# Credits to:       QuickBox.io
+#
+#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
+#
+#   You may copy, distribute and modify the software as long as you track
+#   changes/dates in source files. Any modifications to our software
+#   including (via compiler) GPL-licensed code must also be made available
+#   under the GPL along with build & install instructions.
+#
+#################################################################################
+#################################################################################
+# CORE VARIABLE
+#################################################################################
+CODENAME=$(lsb_release -cs)
+
+################################################################################
+# HELP FUNCTIONS
+################################################################################
+export NEWT_COLORS='
+root=,black
+window=,lightgray
+shadow=,color8
+title=color8,
+checkbox=,magenta
+entry=,color8
+label=blue,
+actlistbox=,magenta
+actsellistbox=,magenta
+helpline=,magenta
+roottext=,magenta
+emptyscale=magenta
+disabledentry=magenta,
+'
+
+_norm=$(tput sgr0)
+_red=$(tput setaf 1)
+_green=$(tput setaf 2)
+_tan=$(tput setaf 3)
+_cyan=$(tput setaf 6)
+
+function _execute() {
+	($1 >>"${OUTTO}" 2>&1)
+}
+function _print() {
+	printf "${_norm}%s${_norm}\n" "$@"
+	printf "%s\n" "$@" >>"${OUTTO}"
+}
+function _info() {
+	printf "${_cyan}➜ %s${_norm}\n" "$@"
+	printf ">> Info: %s\n" "$@" >>"${OUTTO}"
+}
+function _success() {
+	printf "${_green}✓ %s${_norm}\n" "$@"
+	printf ">> Success: %s\n" "$@" >>"${OUTTO}"
+}
+function _warning() {
+	printf "${_tan}⚠ %s${_norm}\n" "$@"
+	printf ">> Warning: %s\n" "$@" >>"${OUTTO}"
+}
+function _error() {
+	printf "${_red}✗ %s${_norm}\n" "$@"
+	printf ">> Error: %s\n" "$@" >>"${OUTTO}"
+}
+
+function _version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
+#################################################################################
+# APP VARIABLE
+#################################################################################
+APP_TITLE="qBittorrent"
+APP_NAME="qbittorrent"
+APP_SERVICE="qbittorrent"
+APP_HOST="127.0.0.1"
+
+# RANDOM PORT
+APP_WEB_PORT_LOW="15151"
+APP_WEB_PORT_HIGH="15200"
+
+APP_LOCK=.$APP_NAME.lock
+OUTTO=/srv/dashboard/db/output.log
+qbitversion_default=4.2.5
+libtversion_default=1.1.14
+cdn=$(cat /install/.cdn.lock)
+use_static=false
+
+BRANCH_LT="https://github.com/arvidn/libtorrent.git"
+BRANCH_QBIT="https://github.com/qbittorrent/qBittorrent.git"
+BRANCH_LIBQBPASS="https://github.com/KozakaiAya/libqbpasswd.git"
+################################################################################
+# SCRIPT FUNCTIONS
+################################################################################
+function _usage() {
+	echo -e "\nQuickBox ARM64 $APP_TITLE Installer"
+	echo -e "\nUsage: \n$(basename "$0") [-h] [-l logfile] [-s static] [--lt] [--qb]"
+	echo -e "\nOptions:\n"
+	echo "-l, --log <logfile>       specific log file"
+	echo "--lt <version>            the Libtorrent version you want to install"
+	echo "--qb <version>            the qBittorrent version you want to install"
+	echo "-s, --static              install qBittorrent with static build"
+	echo "--with-cf                 use cloudflare instead of github"
+	echo "--with-sf                 use sourceforge instead of github"
+	echo "--with-osdn               use osdn(jp)  instead of github"
+	echo "--with-github             use github"	
+	echo ""
+	echo "-h, --help                display this help and exit"
+}
+################################################################################
+# INSTALL FUNCTIONS
+################################################################################
+function _lockCheck() {
+	if [[ -f "/install/.install.lock" ]]; then
+		prevApp=$(cat /install/.install.lock)
+		_info "$prevApp process running."
+		_info "If you believe this to be in error, please manually remove the /install/.install.lock"
+		_error "Exiting..."
+		exit 1
+	fi
+	if [[ -f "/install/$APP_LOCK" ]]; then
+		_error "${APP_TITLE} already installed !"
+		exit 1
+	fi
+}
+function _setLock() {
+	echo "${APP_TITLE}" >/install/.install.lock
+}
+function _lockCleanup() {
+	echo "$APP_TITLE Install Complete!
+
+
+Close this dialog box to refresh your browser" >>"${OUTTO}" 2>&1
+	rm -f /install/.install.lock
+}
+
+function _installInfo() {
+	_print "
+$APP_TITLE will now be installed.
+
+This process may take a few minutes
+Please wait until the process is completed
+"
+}
+
+function _installSystemUpdates() {
+	_info "Checking and performing updates to system... "
+	DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >/dev/null 2>&1
+	DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade >/dev/null 2>&1
+	## auto solve lock
+	if [ "$?" -eq 2 ]; then
+		_warning "dpkg database is locked."
+		_info "fixing dpkg lock..."
+		rm -f /var/lib/dpkg/updates/0*
+		locks=$(find /var/lib/dpkg/lock* && find /var/cache/apt/archives/lock*)
+		if [[ ${locks} == $(find /var/lib/dpkg/lock* && find /var/cache/apt/archives/lock*) ]]; then
+			for l in ${locks}; do
+				rm -rf ${l}
+			done
+			_execute "dpkg --configure -a"
+			DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >/dev/null 2>&1
+			DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade >/dev/null 2>&1
+		fi
+		if ! (apt-get check >/dev/null); then
+			apt-get install -f >>"${OUTTO}" 2>&1
+			if ! (apt-get check >/dev/null); then
+				whiptail --title "$ERROR_TITLE_INSTALL" --msgbox "$ERROR_TEXT_INSTALL_1" --ok-button "$BUTTON_OK" 8 72
+				exit 1
+			fi
+		fi
+	fi
+	_success "System updated."
+}
+
+function _installDepends() {
+	_info "Installing ${APP_TITLE} dependencies..."
+	local DEPLIST="${APP_BASEDEPS}"
+	for depend in $DEPLIST; do
+		_info "Installing ${depend}... "
+		_execute "apt-get -y --allow-unauthenticated -f install ${depend}" || { _error "Could not install ${depend}." && dependError=1; }
+	done
+	if [[ $dependError != "1" ]]; then
+		_success "${APP_TITLE} dependencies installed."
+	else
+		_error "${APP_TITLE} dependencies failed to install."
+		exit 1
+	fi
+}
+
+function _installFpm() {
+	fpm -h >/dev/null 2>&1
+	exit=$?
+	if [[ ! $exit == '0' ]]; then
+		_info "Installing fpm package management..."
+		_execute "apt-get install -yqq ruby ruby-dev rubygems build-essential"
+		_execute "gem install -N fpm"
+		_success "fpm installed."
+	fi
+}
+
+function _cf() {
+	DOMAIN="deb.ezapi.net"
+	SUBFOLDER=""
+	ARCH="arm64"
+	SUFFIX=""
+}
+
+function _sf() {
+	DOMAIN="sourceforge.net"
+	SUBFOLDER="projects/seedbox-software-for-linux/files/"
+	ARCH="arm64"
+	SUFFIX="/download"
+}
+
+function _osdn() {
+	DOMAIN="osdn.dl.osdn.net"
+	SUBFOLDER="storage/g/s/se/seedbox-software-for-linux/"
+	ARCH="arm64"
+	SUFFIX=""
+}
+
+function _github() {
+	DOMAIN="raw.githubusercontent.com"
+	SUBFOLDER="amefs/quickbox-files/master/"
+	ARCH="arm64"
+	SUFFIX=""
+}
+
+function _download() {
+	# init download url
+	PACKAGE=$1
+	DEB=$2
+	case "$cdn" in
+	"cf")
+		_cf
+		wget -t3 -T20 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+		if [ $? -ne 0 ]; then
+			_github
+			wget -t5 -T10 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+			if [ $? -ne 0 ]; then
+				_sf
+				wget -t5 -T10 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+			fi
+		fi
+		;;
+	"sf")
+		_sf
+		wget -t3 -T10 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+		if [ $? -ne 0 ]; then
+			_github
+			wget -t5 -T20 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+			if [ $? -ne 0 ]; then
+				_cf
+				wget -t5 -T10 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+			fi
+		fi
+		;;
+	"osdn")
+		_osdn
+		wget -t3 -T10 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+		if [ $? -ne 0 ]; then
+			_github
+			wget -t5 -T20 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+			if [ $? -ne 0 ]; then
+				_cf
+				wget -t5 -T10 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+			fi
+		fi
+		;;
+	"github")
+		_github
+		wget -t3 -T10 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+		if [ $? -ne 0 ]; then
+			_cf
+			wget -t5 -T20 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+			if [ $? -ne 0 ]; then
+				_sf
+				wget -t5 -T10 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+			fi
+		fi
+		;;
+	*)
+		_github
+		wget -t3 -T10 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+		if [ $? -ne 0 ]; then
+			_cf
+			wget -t5 -T20 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+			if [ $? -ne 0 ]; then
+				_sf
+				wget -t5 -T10 -q -O ${DEB} https://${DOMAIN}/${SUBFOLDER}${CODENAME}/binary-${ARCH}/${PACKAGE}/${DEB}${SUFFIX}
+			fi
+		fi
+		;;
+	esac
+}
+
+function _installLibt() {
+	# Libtorrent
+	APP_TITLE="Libtorrent"
+	if [[ ${libt_deb_req} == 1 ]]; then
+		_info "Installing ${APP_TITLE}..."
+		PACKAGE="libtorrent-rasterbar"
+		cd /tmp || exit 1
+		if [[ ${libt_major_version} == "1.1" ]]; then
+			LIBTBIN=libtorrent-rasterbar9_${libtversion}-1build1_arm64.deb
+		elif [[ ${libt_major_version} == "1.2" ]]; then
+			LIBTBIN=libtorrent-rasterbar10_${libtversion}-1build1_arm64.deb
+		fi
+		DEB=${LIBTBIN}
+		_download ${PACKAGE} ${DEB}
+		_execute "apt-get -y --allow-unauthenticated --allow-downgrades -f install  /tmp/${LIBTBIN}"
+		LIBTDEVBIN=libtorrent-rasterbar-dev_${libtversion}-1build1_arm64.deb
+		DEB=${LIBTDEVBIN}
+		_download ${PACKAGE} ${DEB}
+		_execute "apt-get -y --allow-unauthenticated --allow-downgrades -f install  /tmp/${LIBTDEVBIN}"
+		rm -rf {${LIBTBIN},${LIBTDEVBIN}}
+		if [[ ${libt_major_version} == "1.1" ]]; then
+			touch /install/.libtorrent-rasterbar9.lock
+		elif [[ ${libt_major_version} == "1.2" ]]; then
+			touch /install/.libtorrent-rasterbar10.lock
+		fi
+	elif [ ${libt_compile_req} == 1 ]; then
+		cd /tmp || exit 1
+		APP_TITLE="Libtorrent"
+		# prepare package toolchain
+		APP_BASEDEPS="build-essential libgl1-mesa-dev libssl-dev libboost-dev libboost-system-dev libboost-chrono-dev libboost-random-dev libboost-python-dev python python-dev python3 python3-dev pkg-config automake libtool git libgeoip-dev zlib1g-dev"
+		_installDepends
+		_installFpm
+		if [ ${CODENAME} == 'xenial' ]; then
+			_execute "apt purge -y libssl-dev"
+			_execute "apt install -y libssl-dev=1.0.*"
+		fi
+		_info "Build libtorrent for qBittorrent ... "
+		if [[ ${libt_major_version} == "1.2" ]]; then
+			LTRC=RC_1_2
+			case ${libtversion} in
+			1.2.0) LTCIMMIT="3a1e546" ;;
+			1.2.1) LTCIMMIT="4b26829" ;;
+			1.2.2) LTCIMMIT="9c97055" ;;
+			1.2.3) LTCIMMIT="078f7b9" ;;
+			1.2.4) LTCIMMIT="ad83b1c" ;;
+			1.2.5) LTCIMMIT="bc66605" ;;
+			1.2.6) LTCIMMIT="b9b5443" ;;
+			1.2.7) LTCIMMIT="8e71015" ;;
+			1.2.8) LTCIMMIT="7dcd091" ;;
+			1.2.9) LTCIMMIT="a80f458" ;;
+			1.2.10) LTCIMMIT="70f1de3" ;;
+			1.2.11) LTCIMMIT="471e772" ;;
+			1.2.12) LTCIMMIT="e3f2b01" ;;
+			1.2.13) LTCIMMIT="e00a152" ;;
+			1.2.14) LTCIMMIT="33a10d5" ;;
+			*) LTCIMMIT="." ;;
+			esac
+		elif [[ ${libt_major_version} == "1.1" ]]; then
+			LTRC=RC_1_1
+			case ${libtversion} in
+			1.1.0) LTCIMMIT="2921caf" ;;
+			1.1.1) LTCIMMIT="599967c" ;;
+			1.1.2) LTCIMMIT="a42d439" ;;
+			1.1.3) LTCIMMIT="b065536" ;;
+			1.1.4) LTCIMMIT="5188c19" ;;
+			1.1.5) LTCIMMIT="6214103" ;;
+			1.1.6) LTCIMMIT="b45acf2" ;;
+			1.1.7) LTCIMMIT="aaf9304" ;;
+			1.1.8) LTCIMMIT="4576723" ;;
+			1.1.9) LTCIMMIT="19df645" ;;
+			1.1.10) LTCIMMIT="200bb49" ;;
+			1.1.11) LTCIMMIT="25a1f12" ;;
+			1.1.12) LTCIMMIT="4342725" ;;
+			1.1.13) LTCIMMIT="6f1250c" ;;
+			1.1.14) LTCIMMIT="244f0f1" ;;
+			*) LTCIMMIT="." ;;
+			esac
+		elif [[ ${libt_major_version} == "1.0" ]]; then
+			LTRC=RC_1_0
+			case ${libtversion} in
+			1.0.0) LTCIMMIT="1633ee2" ;;
+			1.0.1) LTCIMMIT="49c2ec9" ;;
+			1.0.2) LTCIMMIT="8f2c17c" ;;
+			1.0.3) LTCIMMIT="edfe81b" ;;
+			1.0.4) LTCIMMIT="a586deb" ;;
+			1.0.5) LTCIMMIT="45521a3" ;;
+			1.0.6) LTCIMMIT="b709199" ;;
+			1.0.7) LTCIMMIT="15b1cd9" ;;
+			1.0.8) LTCIMMIT="e44e8da" ;;
+			1.0.9) LTCIMMIT="b342192" ;;
+			1.0.10) LTCIMMIT="e650ecc" ;;
+			1.0.11) LTCIMMIT="4e90eb1" ;;
+			*) LTCIMMIT="." ;;
+			esac
+		fi
+		mkdir -p /root/pool
+		mkdir -p /tmp/dist
+
+		cd /tmp || exit 1
+		_execute "git clone -b ${LTRC} ${BRANCH_LT} libtorrent"
+		cd libtorrent || { _error "Can not download libtorrent-rasterbar" && exit 1; }
+		_execute "git checkout ${LTCIMMIT}"
+		# compile base package
+		if [[ ${libt_major_version} == "1.0" ]] || [[ ${libt_major_version} == "1.1" ]]; then
+			wget --no-check-certificate -q -O libtorrent-rasterbar-${LTRC}.patch https://raw.githubusercontent.com/amefs/QB/master/setup/sources/libtorrent-rasterbar-${LTRC}.patch
+			patch -p1 <libtorrent-rasterbar-${LTRC}.patch >/dev/null
+			_execute "./autotool.sh"
+			_execute "./configure --with-lib-geoip --with-libiconv CXXFLAGS=-std=c++11 CPPFLAGS=-std=c++11 --prefix=/tmp/dist/libtorrent-rasterbar/usr/local"
+		elif [[ ${libt_major_version} == "1.2" ]]; then
+			_execute "./autotool.sh"
+			_execute "./configure --with-lib-geoip --with-libiconv CXXFLAGS=-std=c++14 CPPFLAGS=-std=c++14 --prefix=/tmp/dist/libtorrent-rasterbar/usr/local"
+		fi
+		_execute "make -j$(nproc)"
+		mkdir -p /tmp/dist/libtorrent-rasterbar/usr/local
+		_execute "make install"
+		fpm -f -C /tmp/dist/libtorrent-rasterbar -p /root/pool/libtorrent-rasterbar_${libtversion}.deb -s dir -t deb -n libtorrent-rasterbar --version ${libtversion} --description "libtorrent-rasterbar compiled by QuickBox ARM64" >>${OUTTO} 2>&1
+		_execute "dpkg -i /root/pool/libtorrent-rasterbar_${libtversion}.deb"
+		echo ${libtversion} >/install/.libtorrent-rasterbar.lock
+		_success "Libtorrent built ..."
+		ldconfig
+	fi
+}
+
+function _installqBit() {
+	# qBittorrent
+	APP_TITLE="qBittorrent"
+	if $(echo "${qbit_version_list[@]}" | grep -wq "${qbitversion}"); then
+		_info "Installing ${APP_TITLE}..."
+		cd /tmp
+		if (_version_gt ${qbitversion} 4.1.9.1); then
+			if [[ "$CODENAME" =~ ("xenial"|"stretch") ]]; then
+				PACKAGE="qt5"
+				cd /tmp
+				QTBIN=qt512base_5.12.6-1basyskom1_arm64.deb
+				DEB=${QTBIN}
+				_download ${PACKAGE} ${DEB}
+				_execute "apt-get -y --allow-unauthenticated --allow-downgrades -f install /tmp/${QTBIN}"
+				rm -rf ${QTBIN}
+			fi
+		fi
+		PACKAGE="qbittorrent"
+		QBITBIN=qbittorrent-nox_${qbitversion}-libt${libt_major_version}-1build1_arm64.deb
+		DEB=${QBITBIN}
+		_download ${PACKAGE} ${DEB}
+		_execute "apt-get -y --allow-unauthenticated --allow-downgrades -f install /tmp/${QBITBIN}"
+		rm -rf ${QBITBIN}
+
+		# disable auto upgrade
+		_execute "apt-mark hold qbittorrent-nox"
+	else
+		# prepare package toolchain
+		APP_BASEDEPS="build-essential libgl1-mesa-dev libssl-dev libboost-dev libboost-system-dev libboost-chrono-dev libboost-random-dev libboost-python-dev python python-dev python3 python3-dev pkg-config automake libtool git screen libgeoip-dev qtbase5-dev qttools5-dev-tools libqt5svg5-dev zlib1g-dev"
+		_info "Adding additional keys and sources ${APP_TITLE}..."
+		if [ $CODENAME == "xenial" ] && $(grep -qv 'xenial-updates'< /etc/apt/sources.list); then
+			cat > /etc/apt/sources.list.d/xenial-updates.list <<LIST
+deb http://us.archive.ubuntu.com/ubuntu/ xenial-updates main
+LIST
+			_success "Keys and sources added."
+		elif [ $CODENAME == "stretch" ] && $(grep -qv 'stretch-backports'< /etc/apt/sources.list); then
+			cat > /etc/apt/sources.list.d/stretch-backports.list <<LIST
+deb http://deb.debian.org/debian stretch-backports main	
+LIST
+			_success "Keys and sources added."
+		fi
+		DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >/dev/null 2>&1
+		_installDepends
+		_installFpm
+		if (_version_gt ${qbitversion} 4.1.9.1); then
+			if [[ "$CODENAME" =~ ("xenial"|"stretch") ]]; then
+				PACKAGE="qt5"
+				cd /tmp
+				DEBASE="qt512base_5.12.6-1basyskom1_arm64.deb qt512xmlpatterns_5.12.6-1basyskom1_arm64.deb qt512declarative_5.12.6-1basyskom1_arm64.deb qt512svg_5.12.6-1basyskom1_arm64.deb qt512tools_5.12.6-1basyskom1_arm64.deb"
+				for DEB in $DEBASE; do
+					_download ${PACKAGE} ${DEB}
+					_execute "apt-get -y --allow-unauthenticated -f install /tmp/${DEB}"
+					rm -rf /tmp/${DEB}
+				done
+				source /opt/qt512/bin/qt512-env.sh
+				if [[ ! -f /usr/bin/lrelease-qt5 ]]; then
+					ln -s /usr/lib/x86_64-linux-gnu/qt5/bin/lrelease /usr/bin/lrelease-qt5
+				fi
+			fi
+		fi
+		cd /tmp
+		_info "Building $APP_TITLE ... "
+		_execute "git clone ${BRANCH_QBIT} qBittorrent"
+		cd qBittorrent || { _error "Can not download qBittorrent" && exit 1; }
+		_execute "git checkout release-${qbitversion}"
+		./configure CXXFLAGS="-std=c++14" --disable-gui --disable-debug --prefix=/tmp/dist/qbittorrent >> $OUTTO 2>&1
+		_execute "make -j$(nproc)"
+		mkdir -p /tmp/dist/qbittorrent
+		mkdir -p /root/pool/
+		_execute "make install"
+		fpm -f -C /tmp/dist/qbittorrent -p /root/pool/qbittorrent_${qbitversion}.deb -s dir -t deb -n qbittorrent-nox --version ${qbitversion} --description "qBittorrent compiled by QuickBox ARM64" >/dev/null 2>&1
+		_execute "dpkg -i /root/pool/qbittorrent_${qbitversion}.deb"
+		cd /tmp
+		rm -rf {qBittorrent,libtorrent,dist}
+		# disable auto upgrade
+		_execute "apt-mark hold qbittorrent-nox"
+	fi
+}
+
+function _installStatic() {
+	if [[ -n ${static_binary} ]]; then
+		cd /tmp || exit 1
+		wget -t3 -T20 -q -O /usr/local/bin/qbittorrent-nox https://qbit-static.ezapi.net/${static_binary}
+		chmod +x /usr/local/bin/qbittorrent-nox
+	else
+		if [[ ! -f /install/.docker.lock ]]; then
+			_info "Install docker for building qBittorrent... "
+			rm -f /install/.install.lock
+			bash /usr/local/bin/quickbox/package/install/installpackage-docker -l $OUTTO
+			echo "qBittorrent" >/install/.install.lock
+		fi
+			case ${libtversion} in
+			1.2.0) libttag="libtorrent_1_2_0" ;;
+			1.2.1) libttag="libtorrent_1_2_1" ;;
+			1.2.2) libttag="libtorrent_1_2_2" ;;
+			1.2.3) libttag="libtorrent_1_2_3" ;;
+			1.2.4) libttag="libtorrent_1_2_4" ;;
+			1.2.5) libttag="libtorrent_1_2_5" ;;
+			1.2.6) libttag="libtorrent_1_2_6" ;;
+			1.2.7) libttag="libtorrent_1_2_7" ;;
+			1.2.8) libttag="libtorrent-1.2.8" ;;
+			1.2.9) libttag="libtorrent-1.2.9" ;;
+			1.2.10) libttag="libtorrent-1.2.10" ;;
+			1.2.11) libttag="v1.2.11" ;;
+			1.2.12) libttag="v1.2.12" ;;
+			1.2.13) libttag="v1.2.13" ;;
+			1.2.14) libttag="v1.2.14" ;;
+			1.1.0) libttag="libtorrent-1_1" ;;
+			1.1.1) libttag="libtorrent-1_1_1" ;;
+			1.1.2) libttag="libtorrent-1_1_2" ;;
+			1.1.3) libttag="libtorrent-1_1_3" ;;
+			1.1.4) libttag="libtorrent-1_1_4" ;;
+			1.1.5) libttag="libtorrent-1_1_5" ;;
+			1.1.6) libttag="libtorrent-1_1_6" ;;
+			1.1.7) libttag="libtorrent-1_1_7" ;;
+			1.1.8) libttag="libtorrent-1_1_8" ;;
+			1.1.9) libttag="libtorrent-1_1_9" ;;
+			1.1.10) libttag="libtorrent-1_1_10" ;;
+			1.1.11) libttag="libtorrent-1_1_11" ;;
+			1.1.12) libttag="libtorrent-1_1_12" ;;
+			1.1.13) libttag="libtorrent-1_1_13" ;;
+			1.1.14) libttag="libtorrent-1_1_14" ;;
+			*) libttag="libtorrent-1_1_14" ;;
+			esac
+		_info "building static qBittorrent... "
+		cd /tmp || exit 1
+		mkdir -p /tmp/qb-static
+		\cp -rf /etc/QuickBox/packages/system/auxiliary/qbittorrent-nox-static.sh /tmp/qb-static/qbittorrent-nox-static.sh
+		docker run -it -v /tmp/qb-static:/root alpine:latest /bin/ash -c "apk update && apk add bash curl && cd && bash ./qbittorrent-nox-static.sh all -i --lt \"${libttag}\" --qt \"release-${qbitversion}\" -v" >> $OUTTO 2>&1
+		cp /tmp/qb-static/qb-build/completed/qbittorrent-nox /usr/local/bin/qbittorrent-nox
+		chmod +x /usr/local/bin/qbittorrent-nox
+		_info "cleaning up... "
+		rm -rf /tmp/qb-static
+	fi
+}
+
+function _installApp() {
+	_info "Building ${APP_TITLE}..."
+	if [ -z "${qbitversion}" ]; then
+		qbitversion=${qbitversion_default}
+	fi
+	qbit_major_version=$(echo ${qbitversion}| cut -d. -f1,2)
+	if [ -z "${libtversion}" ]; then
+		if (_version_gt ${qbitversion} "4.3.1"); then
+			_info "Fetching package list..."
+			cd /tmp || exit 1
+			wget -t3 -T20 -q -O file.lst https://qbit-static.ezapi.net/file.lst
+			libtversion=$(cat file.lst | grep -wE "qbittorrent-nox\.qbit${qbitversion}_lt.*\.arm64" | awk '{ print $3}' | sort -r | head -n 1)
+			_warning "Use Libtorrent ${libtversion} for ${qbit_major_version}.x"
+		else
+			libtversion=${libtversion_default}
+		fi
+	fi
+	libt_major_version=$(echo ${libtversion}| cut -d. -f1,2)
+	# version check
+	libt_fallback=false
+	if (_version_gt ${qbit_major_version} "4.2"); then
+		if (_version_gt "1.2.11" ${libtversion}); then
+			libtversion="1.2.11"
+			libt_major_version="1.2"
+			libt_fallback=true
+		fi
+	fi
+	if (_version_gt ${qbitversion} "4.3.1"); then
+		if (_version_gt "1.2.12" ${libtversion}); then
+			libtversion="1.2.12"
+			libt_major_version="1.2"
+			libt_fallback=true
+		fi
+	fi
+	if ${libt_fallback}; then _warning "Use Libtorrent ${libtversion} for ${qbit_major_version}.x"; fi
+	if (_version_gt ${qbit_major_version} "4.2"); then
+		use_static=true
+	fi
+	# Static / Dynamic linking
+	if $use_static; then
+		_info "Fetching package list..."
+		cd /tmp || exit 1
+		wget -t3 -T20 -q -O file.lst https://qbit-static.ezapi.net/file.lst
+		if [ -z "${libtversion}" ]; then
+			static_binary=$(cat file.lst | grep -wE "qbittorrent-nox\.qbit${qbitversion}_lt.*\.arm64" | awk '{ print $4}' | sort -r | head -n 1)
+		else
+			static_binary=$(cat file.lst | grep -w "qbittorrent-nox.qbit${qbitversion}_lt${libtversion}.arm64" | awk '{ print $4}')
+		fi
+		rm -f file.lst
+		_installStatic
+	else
+		_info "Fetching package list..."
+		cd /tmp || exit 1
+		wget -t3 -T20 -q -O packages.lst https://deb.ezapi.net/packages.lst
+		if [ $? -ne 0 ]; then
+			_github
+			wget -t5 -T10 -q -O packages.lst https://raw.githubusercontent.com/amefs/quickbox-files/master/packages.lst
+			if [ $? -ne 0 ]; then
+				_sf
+				wget -t5 -T10 -q -O packages.lst https://sourceforge.net/projects/seedbox-software-for-linux/files/packages.lst/download
+			fi
+		fi
+		if [[ ${libt_major_version} == "1.1" ]]; then
+			qbit_version_list=$(cat packages.lst | grep -w qbittorrent-nox | grep ${CODENAME} | grep arm64 | grep libt1.1 | awk '{ print $5}' | cut -d '-' -f1)
+		elif [[ ${libt_major_version} == "1.2" ]]; then
+			qbit_version_list=$(cat packages.lst | grep -w qbittorrent-nox | grep ${CODENAME} | grep arm64 | grep libt1.2 | awk '{ print $5}' | cut -d '-' -f1)
+		fi
+		libt_version_list=$(cat packages.lst | grep -wE 'libtorrent-rasterbar[0-9]{1,2}' | grep ${CODENAME} | grep arm64 | awk '{ print $5}')
+		rm -f packages.lst
+		# lock check
+		libt_compile_req=0
+		libt_deb_req=0
+		# .libtorrent-rasterbar.lock libtorrent-rasterbar by compiled
+		# .libtorrent-rasterbar9.lock libtorrent-rasterbar 1.1.x
+		# .libtorrent-rasterbar10.lock libtorrent-rasterbar 1.2.x
+		if [[ -f /install/.libtorrent-rasterbar.lock ]]; then
+			_success "Libtorrent already installed, Skip..."
+			##TODO check if version > request, block installation if not match
+		else
+			APP_TITLE="Libtorrent"
+			if $(echo "${libt_version_list[@]}" | grep -wq "${libtversion}"); then
+				if ([[ ${libt_major_version} == "1.1" ]] && [[ ! -f /install/.libtorrent-rasterbar9.lock ]]) || ([[ ${libt_major_version} == "1.2" ]] && [[ ! -f /install/.libtorrent-rasterbar10.lock ]]); then
+					libt_deb_req=1
+				fi
+			else
+				libt_compile_req=1
+			fi
+		fi
+		_installLibt
+		_installqBit
+	fi
+
+	_success "${APP_TITLE} Built."
+}
+
+function _configureApp() {
+	_info "Configuring ${APP_TITLE}..."
+
+	# get userlist
+	userlist=$(cat $(find /root/.qbuser/ -type f) | cut -d: -f1)
+	for username in $userlist; do
+		# get used port
+		local usedport=""
+		if (find /install/ -type f | grep -q .$APP_NAME.port); then
+			usedport=$(cat $(find /install/ -type f | grep .$APP_NAME.port))
+		fi
+		# generate available port
+		PORT=$(shuf -i ${APP_WEB_PORT_LOW}-${APP_WEB_PORT_HIGH} -n 1)
+		while [[ "$(netstat -ln | grep ':'"$PORT"'' | grep -c 'LISTEN')" -eq "1" || $usedport =~ $PORT ]]; do
+			PORT=$(shuf -i ${APP_WEB_PORT_LOW}-${APP_WEB_PORT_HIGH} -n 1)
+		done
+		echo "$PORT" >/install/$username.$APP_NAME.port
+		passphrase=$(cat /root/.ssh/local_user)
+		passtext=$(cat /root/.qbuser/${username}.info | cut -d: -f2)
+		password=$(echo ${passtext} | openssl enc -aes-128-ecb -pbkdf2 -a -d -pass pass:"${passphrase}" -nosalt)
+
+		mkdir -p /home/${username}/.config/qBittorrent
+		if (_version_gt ${qbitversion} 4.1.9.1); then
+			# get libqbpasswd
+			## See https://github.com/KozakaiAya/libqbpasswd
+			cd /tmp
+			_info "Building libqbpasswd ... "
+			_execute "apt-get install -yqq build-essential"
+			_execute "git clone ${BRANCH_LIBQBPASS} libqbpasswd"
+			cd libqbpasswd
+			_execute "make"
+			_execute "cp -f qb_password_gen /usr/local/bin/quickbox/system/auxiliary/qb_password_gen"
+			cd /tmp
+			rm -rf /tmp/libqbpasswd
+			pbkdf2pass=$(/usr/local/bin/quickbox/system/auxiliary/qb_password_gen ${password})
+			cat >/home/${username}/.config/qBittorrent/qBittorrent.conf <<QBC
+[AutoRun]
+enabled=false
+program=
+
+[Application]
+FileLogger\Enabled=true
+FileLogger\Age=6
+FileLogger\DeleteOld=true
+FileLogger\Backup=true
+FileLogger\AgeType=1
+FileLogger\MaxSize=20
+
+[LegalNotice]
+Accepted=true
+
+[Preferences]
+Bittorrent\AddTrackers=false
+Bittorrent\LSD=false
+Bittorrent\MaxRatioAction=0
+Bittorrent\PeX=true
+Bittorrent\Encryption=1
+Bittorrent\MaxConnecs=-1
+Bittorrent\MaxConnecsPerTorrent=-1
+Bittorrent\MaxRatioAction=0
+Bittorrent\uTP=false
+Bittorrent\uTP_rate_limited=false
+Connection\GlobalDLLimitAlt=0
+Connection\GlobalUPLimitAlt=0
+Connection\UPnP=false
+Downloads\DiskWriteCacheSize=64
+Downloads\DiskWriteCacheTTL=60
+Downloads\PreAllocation=true
+Downloads\SavePath=/home/${username}/torrents/qbittorrent
+Downloads\ScanDirsV2=@Variant(\0\0\0\x1c\0\0\0\0)
+Downloads\StartInPause=false
+General\Locale=
+General\UseRandomPort=true
+WebUI\Address=${APP_HOST}
+WebUI\AuthSubnetWhitelist=@Invalid()
+WebUI\AuthSubnetWhitelistEnabled=false
+WebUI\HTTPS\Enabled=false
+WebUI\LocalHostAuth=false
+WebUI\Password_PBKDF2="@ByteArray(${pbkdf2pass})"
+WebUI\Port=${PORT}
+WebUI\ServerDomains=*
+WebUI\UseUPnP=false
+WebUI\Username=${username}
+
+[BitTorrent]
+Session\GuidedReadCache=true
+Session\ChokingAlgorithm=FixedSlots
+Session\SeedChokingAlgorithm=FastestUpload
+Session\MultiConnectionsPerIp=true
+Session\BTProtocol=TCP
+Session\CreateTorrentSubfolder=true
+Session\DisableAutoTMMByDefault=true
+Session\DisableAutoTMMTriggers\CategoryChanged=true
+Session\DisableAutoTMMTriggers\CategorySavePathChanged=true
+Session\DisableAutoTMMTriggers\DefaultSavePathChanged=true
+Session\SendBufferWatermark=500
+Session\SendBufferLowWatermark=10
+Session\SendBufferWatermarkFactor=50
+QBC
+		else
+			ha1pass=$(echo -n "${password}" | md5sum | cut -f1 -d' ')
+			cat >/home/${username}/.config/qBittorrent/qBittorrent.conf <<QBC
+[AutoRun]
+enabled=false
+program=
+
+[LegalNotice]
+Accepted=true
+
+[Preferences]
+Bittorrent\AddTrackers=false
+Bittorrent\MaxRatioAction=0
+Bittorrent\PeX=true
+Bittorrent\Encryption=0
+Connection\GlobalDLLimitAlt=10
+Connection\GlobalUPLimitAlt=10
+Downloads\DiskWriteCacheSize=64
+Downloads\DiskWriteCacheTTL=60
+Downloads\PreAllocation=true
+Downloads\SavePath=/home/${username}/torrents/qbittorrent
+Downloads\ScanDirsV2=@Variant(\0\0\0\x1c\0\0\0\0)
+Downloads\StartInPause=false
+General\Locale=
+General\UseRandomPort=true
+WebUI\Address=${APP_HOST}
+WebUI\AuthSubnetWhitelist=@Invalid()
+WebUI\AuthSubnetWhitelistEnabled=false
+WebUI\HTTPS\Enabled=false
+WebUI\LocalHostAuth=false
+WebUI\Password_ha1=@ByteArray(${ha1pass})
+WebUI\Port=${PORT}
+WebUI\ServerDomains=*
+WebUI\UseUPnP=true
+WebUI\Username=${username}
+
+[BitTorrent]
+Session\GuidedReadCache=true
+Session\ChokingAlgorithm=FixedSlots
+Session\SeedChokingAlgorithm=FastestUpload
+Session\MultiConnectionsPerIp=true
+Session\BTProtocol=Both
+Session\CreateTorrentSubfolder=true
+Session\DisableAutoTMMByDefault=true
+Session\DisableAutoTMMTriggers\CategoryChanged=true
+Session\DisableAutoTMMTriggers\CategorySavePathChanged=true
+Session\DisableAutoTMMTriggers\DefaultSavePathChanged=true
+Session\SendBufferWatermark=500
+Session\SendBufferLowWatermark=10
+Session\SendBufferWatermarkFactor=50
+QBC
+		fi
+		
+		chown -R ${username}.${username} /home/${username}/.config/
+		mkdir -p /home/${username}/qbwatch
+		chown ${username}: /home/${username}/qbwatch
+		mkdir -p /home/${username}/torrents/qbittorrent
+		chown -R ${username}: /home/${username}/torrents
+
+		cat >/etc/nginx/conf.d/${username}.qbittorrent.conf <<EOF
+upstream ${username}.qbittorrent {
+  server 127.0.0.1:$PORT;
+}
+EOF
+		cat >>/etc/nginx/apps/${username}.qbitdlindex.conf <<EOF
+location /${username}.qbittorrent.downloads {
+  alias /home/${username}/torrents/qbittorrent;
+  include /etc/nginx/snippets/fancyindex.conf;
+  auth_basic "Password Required";
+  auth_basic_user_file /etc/htpasswd.d/htpasswd.${username};
+
+  location ~* \.php$ {
+
+  }
+}
+EOF
+		if [[ -f /install/.${username}.flexget.lock ]]; then
+			sed -i "s/QBPORT/${PORT}/g" /home/${username}/.config/flexget/config.yml
+		fi
+		if [[ -f /install/.${username}.autoremovetorrents.lock ]]; then
+			sed -i "s/QBPORT/${PORT}/g" /home/${username}/.config/autoremovetorrents/config.yml
+		fi
+	done
+
+	cat >/etc/nginx/apps/qbittorrent.conf <<'QBRP'
+location /qbittorrent {
+  return 301 /qbittorrent/;
+}
+
+location /qbittorrent/ {
+  include /etc/nginx/snippets/proxy.conf;
+  auth_basic "Password Required";
+  auth_basic_user_file /etc/htpasswd.d/htpasswd.$remote_user;
+  proxy_set_header        X-Forwarded-Host        $server_name:$server_port;
+  proxy_hide_header       Referer;
+  proxy_hide_header       Origin;
+  proxy_set_header        Referer                 '';
+  proxy_set_header        Origin                  '';
+  add_header              X-Frame-Options         "SAMEORIGIN";
+  rewrite ^/qbittorrent/(.*) /$1 break;
+  proxy_pass  http://$remote_user.qbittorrent;
+}
+QBRP
+
+	BINPATH=$(which qbittorrent-nox)
+	cat >/etc/systemd/system/qbittorrent@.service <<QBS
+[Unit]
+Description=qBittorrent Daemon Service
+After=network.target
+
+[Service]
+Type=forking
+User=%I
+LimitNOFILE=infinity
+ExecStart=${BINPATH} -d
+ExecStop=/usr/bin/killall -w -s 9 ${BINPATH}
+TimeoutSec=300
+
+[Install]
+WantedBy=multi-user.target
+QBS
+	_execute "systemctl daemon-reload"
+	_execute "nginx -s reload"
+	_success "${APP_TITLE} configured."
+}
+
+function _installAppLock() {
+	_info "Configuring ${APP_TITLE} lock..."
+	touch /install/${APP_LOCK}
+	_success "${APP_TITLE} lock configured."
+}
+
+function _installAppStart() {
+	_info "Starting ${APP_TITLE}..."
+	userlist=$(cat $(find /root/.qbuser/ -type f) | cut -d: -f1)
+	for username in $userlist; do
+		_execute "systemctl enable ${APP_SERVICE}@${username}"
+		_execute "systemctl start ${APP_SERVICE}@${username}"
+		sleep 5
+		if (_version_gt ${qbitversion} 4.1.9.1); then
+			curl -i --data 'json={"scan_dirs":{"'"/home/${username}/qbwatch"'":1}}' http://localhost:$(cat /install/${username}.$APP_NAME.port)/api/v2/app/setPreferences >>"${OUTTO}" 2>&1
+		else
+			curl -i --data 'json={"scan_dirs":{"'"/home/${username}/qbwatch"'":1}}' http://localhost:$(cat /install/${username}.$APP_NAME.port)/command/setPreferences >>"${OUTTO}" 2>&1
+		fi
+	done
+	_success "${APP_TITLE} started."
+}
+
+#################################################################################
+# OPT GENERATOR
+#################################################################################
+if ! ARGS=$(getopt -a -o hsl: -l help,static,with-cf,with-sf,with-osdn,with-github,log:,qb:,lt: -- "$@")
+then
+    _usage
+    exit 1
+fi
+eval set -- "${ARGS}"
+while true; do
+	case "$1" in
+	-h | --help)
+		_usage
+		exit 1
+		;;
+	-l | --log)
+		OUTTO="$2"
+		shift
+		;;
+	--qb)
+		qbitversion="$2"
+		shift
+		;;
+	--lt)
+		libtversion="$2"
+		shift
+		;;
+	-s | --static)
+		use_static=true
+		;;
+	--with-cf)
+		cdn="cf"
+		;;
+	--with-sf)
+		cdn="sf"
+		;;
+	--with-osdn)
+		cdn="osdn"
+		;;
+	--with-github)
+		cdn="github"
+		;;
+	--)
+		shift
+		break
+		;;
+	esac
+	shift
+done
+
+#################################################################################
+# MAIN PROCESS
+#################################################################################
+_lockCheck
+_setLock
+_installInfo
+if [[ ! -f /install/.system.lock ]]; then
+	_installSystemUpdates
+fi
+_installApp
+_configureApp
+_installAppLock
+_installAppStart
+_lockCleanup
