@@ -4,7 +4,7 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.0.0
+# Current version:  v1.1.0
 # URL:
 # Original Repo:    https://teddysun.com/444.html
 # Credits to:       QuickBox.io
@@ -58,7 +58,7 @@ function _error() {
 ################################################################################
 function _iotest() {
 	if [[ -f /install/.lang_zh.lock ]]; then
-		python3 /usr/local/bin/quickbox/system/auxiliary/fio-bench_zh-cn.py ${EXTRACMD}
+		LANG=zh_CN.UTF-8 && python3 /usr/local/bin/quickbox/system/auxiliary/fio-bench.py ${EXTRACMD}
 	else
 		python3 /usr/local/bin/quickbox/system/auxiliary/fio-bench.py ${EXTRACMD}
 	fi

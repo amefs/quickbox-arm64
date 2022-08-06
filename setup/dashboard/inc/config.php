@@ -8,7 +8,7 @@ require_once($_SERVER['DOCUMENT_ROOT'].'/inc/util.php');
 
 session_start_timeout(5);
 
-$version = 'v1.0.0';
+$version = 'v1.1.0';
 $panel   = [
     'name'        => 'QuickBox ARM64',
     'author'      => 'Everyone that contributes to the open QuickBox project!',
@@ -22,7 +22,7 @@ $iface_list = ['INETFACE'];
 $branch     = 'master';
 
 if (file_exists('/install/.developer.lock')) {
-    $branch = 'developer';
+    $branch = 'development';
     if (file_exists('/install/.debug.lock')) {
         $branch_info = @file('/install/.debug.lock');
         if ($branch_info !== false) {

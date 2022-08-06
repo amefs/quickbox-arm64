@@ -4,7 +4,7 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.0.0
+# Current version:  v1.1.0
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
@@ -195,7 +195,7 @@ function _installApp() {
 function _configureApp() {
 	_info "Configuring ${APP_TITLE}..."
 
-	if [[ -f /install/.lang_dk.lock ]]; then
+	if [[ -f /install/.lang_da.lock ]]; then
 		UIlang=en
 	elif [[ -f /install/.lang_en.lock ]]; then
 		UIlang=en

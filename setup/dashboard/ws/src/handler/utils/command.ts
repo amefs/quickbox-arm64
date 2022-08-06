@@ -17,7 +17,7 @@ export interface CommandType {
  * @param dir directory path
  */
 export function getFiles(dir: string): string[] {
-    const files = [];
+    const files: string[] = [];
     if (!fs.existsSync(dir)) {
         return files;
     }
@@ -29,7 +29,7 @@ export function getFiles(dir: string): string[] {
  * validate and build command
  * @param payload command passed from frontend
  */
-export function buildCommand(payload: string, config: CommandType | WatchedConfig<CommandType>, username: string): string {
+export function buildCommand(payload: string | undefined, config: CommandType | WatchedConfig<CommandType> | undefined, username: string | undefined): string {
     if (!payload) {
         throw new Error(`Invalid payload with type '${Object.prototype.toString.call(payload)}'`);
     }
@@ -54,7 +54,7 @@ export function buildCommand(payload: string, config: CommandType | WatchedConfi
     // check operation
     if (template.includes(Constant.TEMPLATE_OPERATION)) {
         const configOperation = commandConfig.operations.find(value => value === operation);
-        if (configOperation) {
+        if (configOperation !== undefined) {
             template = template.replace(Constant.TEMPLATE_OPERATION, configOperation);
         } else {
             throw new Error(`Operation '${operation}' not found`);
@@ -68,7 +68,7 @@ export function buildCommand(payload: string, config: CommandType | WatchedConfi
     // check target
     if (template.includes(Constant.TEMPLATE_TARGET)) {
         const configTarget = commandConfig.targets.find(value => value === target || value === target + `@${Constant.TEMPLATE_USERNAME}`);
-        if (configTarget) {
+        if (configTarget !== undefined) {
             template = template.replace(Constant.TEMPLATE_TARGET, configTarget);
         } else {
             throw new Error(`Target '${target}' not found`);

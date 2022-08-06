@@ -4,7 +4,7 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.0.0
+# Current version:  v1.1.0
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
@@ -86,10 +86,10 @@ APP_WEB_PORT_HIGH="15200"
 
 APP_LOCK=.$APP_NAME.lock
 OUTTO=/srv/dashboard/db/output.log
-qbitversion_default=4.2.5
-libtversion_default=1.1.14
+qbitversion_default=4.3.9
+libtversion_default=1.2.14
 cdn=$(cat /install/.cdn.lock)
-use_static=false
+use_static=0
 
 BRANCH_LT="https://github.com/arvidn/libtorrent.git"
 BRANCH_QBIT="https://github.com/qbittorrent/qBittorrent.git"
@@ -563,6 +563,10 @@ function _installApp() {
 	if [ -z "${qbitversion}" ]; then
 		qbitversion=${qbitversion_default}
 	fi
+	if [[ "${CODENAME}" == "bullseye" ]] && (_version_gt "4.2.0"  ${qbitversion}); then
+		qbitversion=${qbitversion_default}
+		_warning "Use qBittorrent ${qbitversion}"
+	fi
 	qbit_major_version=$(echo ${qbitversion}| cut -d. -f1,2)
 	if [ -z "${libtversion}" ]; then
 		if (_version_gt ${qbitversion} "4.3.1"); then
@@ -594,10 +598,10 @@ function _installApp() {
 	fi
 	if ${libt_fallback}; then _warning "Use Libtorrent ${libtversion} for ${qbit_major_version}.x"; fi
 	if (_version_gt ${qbit_major_version} "4.2"); then
-		use_static=true
+		use_static=1
 	fi
 	# Static / Dynamic linking
-	if $use_static; then
+	if [[ ${use_static} == 1 ]]; then
 		_info "Fetching package list..."
 		cd /tmp || exit 1
 		wget -t3 -T20 -q -O file.lst https://qbit-static.ezapi.net/file.lst
@@ -896,6 +900,11 @@ function _installAppStart() {
 		else
 			curl -i --data 'json={"scan_dirs":{"'"/home/${username}/qbwatch"'":1}}' http://localhost:$(cat /install/${username}.$APP_NAME.port)/command/setPreferences >>"${OUTTO}" 2>&1
 		fi
+		if [[ -d /home/${username}/.local/share/data/qBittorrent ]]; then
+			chmod -R 755 /home/"${username}"/.local/share/data/qBittorrent
+		else
+			chmod -R 755 /home/"${username}"/.local/share/qBittorrent
+		fi
 	done
 	_success "${APP_TITLE} started."
 }
@@ -928,7 +937,7 @@ while true; do
 		shift
 		;;
 	-s | --static)
-		use_static=true
+		use_static=1
 		;;
 	--with-cf)
 		cdn="cf"

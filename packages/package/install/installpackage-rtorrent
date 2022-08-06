@@ -4,7 +4,7 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.0.0
+# Current version:  v1.1.0
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
@@ -336,8 +336,13 @@ function _installApp() {
 		LTORRENTBIN=libtorrent19_0.13.6-1build1_arm64.deb
 		;;
 	0.9.4)
-		RTORRENTBIN=rtorrent_0.9.4-1build1_arm64.deb
-		LTORRENTBIN=libtorrent18_0.13.4-1build1_arm64.deb
+		if [[ "${CODENAME}" == "bullseye" ]]; then
+			RTORRENTBIN=rtorrent_0.9.6-1build1_arm64.deb
+			LTORRENTBIN=libtorrent19_0.13.6-1build1_arm64.deb
+		else
+			RTORRENTBIN=rtorrent_0.9.4-1build1_arm64.deb
+			LTORRENTBIN=libtorrent18_0.13.4-1build1_arm64.deb
+		fi
 		;;
 	* | "")
 		RTORRENTBIN=rtorrent_0.9.6-1build1_arm64.deb

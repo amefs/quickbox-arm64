@@ -13,6 +13,10 @@ $day = null;
 $hour = null;
 /** @var array<int,mixed> $month */
 $month = null;
+/** @var array<int,mixed> $top */
+$top = null;
+/** @var array<int,mixed> $summary */
+$summary = null;
 
 require($_SERVER['DOCUMENT_ROOT'].'/widgets/vnstat.php');
 
@@ -26,8 +30,8 @@ validate_input();
 function write_summary() {
     global $summary, $day, $hour, $month;
 
-    $trx     = $summary['totalrx'] * 1024 + $summary['totalrxk'];
-    $ttx     = $summary['totaltx'] * 1024 + $summary['totaltxk'];
+    $trx     = $summary['totalrx'];
+    $ttx     = $summary['totaltx'];
     $ttime   = strtotime('now') - $summary['created'];
     $trx_avg = round($trx / $ttime) * 8;
     $ttx_avg = round($ttx / $ttime) * 8;
@@ -35,32 +39,27 @@ function write_summary() {
     //
     // let's build array for write_data_table
     //
-
     $sum = [];
 
     if (count($day) > 0 && count($hour) > 0 && count($month) > 0) {
-        $sum[0]['act']    = 1;
         $sum[0]['label']  = T('This hour');
-        $sum[0]['rx']     = $hour[0]['rx'];
-        $sum[0]['tx']     = $hour[0]['tx'];
-        $sum[0]['rx_avg'] = $hour[0]['rx_avg'];
-        $sum[0]['tx_avg'] = $hour[0]['tx_avg'];
+        $sum[0]['rx']     = end($hour)['rx'];
+        $sum[0]['tx']     = end($hour)['tx'];
+        $sum[0]['rx_avg'] = end($hour)['rx_avg'];
+        $sum[0]['tx_avg'] = end($hour)['tx_avg'];
 
-        $sum[1]['act']    = 1;
         $sum[1]['label']  = T('This day');
-        $sum[1]['rx']     = $day[0]['rx'];
-        $sum[1]['tx']     = $day[0]['tx'];
-        $sum[1]['rx_avg'] = $day[0]['rx_avg'];
-        $sum[1]['tx_avg'] = $day[0]['tx_avg'];
+        $sum[1]['rx']     = end($day)['rx'];
+        $sum[1]['tx']     = end($day)['tx'];
+        $sum[1]['rx_avg'] = end($day)['rx_avg'];
+        $sum[1]['tx_avg'] = end($day)['tx_avg'];
 
-        $sum[2]['act']    = 1;
         $sum[2]['label']  = T('This month');
-        $sum[2]['rx']     = $month[0]['rx'];
-        $sum[2]['tx']     = $month[0]['tx'];
-        $sum[2]['rx_avg'] = $month[0]['rx_avg'];
-        $sum[2]['tx_avg'] = $month[0]['tx_avg'];
+        $sum[2]['rx']     = end($month)['rx'];
+        $sum[2]['tx']     = end($month)['tx'];
+        $sum[2]['rx_avg'] = end($month)['rx_avg'];
+        $sum[2]['tx_avg'] = end($month)['tx_avg'];
 
-        $sum[3]['act']    = 1;
         $sum[3]['label']  = T('All time');
         $sum[3]['rx']     = $trx;
         $sum[3]['tx']     = $ttx;
@@ -69,58 +68,6 @@ function write_summary() {
     }
 
     write_data_table(T('Summary'), $sum);
-}
-
-/**
- * bandwidth info for top 10 days with the highest traffic.
- *
- * @return void
- */
-function write_top_10() {
-    global $top, $summary, $hour, $day, $month;
-
-    $trx     = $summary['totalrx'] * 1024 + $summary['totalrxk'];
-    $ttx     = $summary['totaltx'] * 1024 + $summary['totaltxk'];
-    $ttime   = strtotime('now') - $summary['created'];
-    $trx_avg = round($trx / $ttime) * 8;
-    $ttx_avg = round($ttx / $ttime) * 8;
-    //
-    // let's build array for write_data_table
-    //
-
-    $sum = [];
-
-    if (count($day) > 0 && count($hour) > 0 && count($month) > 0) {
-        $sum[0]['act']    = 1;
-        $sum[0]['label']  = T('This hour');
-        $sum[0]['rx']     = $hour[0]['rx'];
-        $sum[0]['tx']     = $hour[0]['tx'];
-        $sum[0]['rx_avg'] = $hour[0]['rx_avg'];
-        $sum[0]['tx_avg'] = $hour[0]['tx_avg'];
-
-        $sum[1]['act']    = 1;
-        $sum[1]['label']  = T('This day');
-        $sum[1]['rx']     = $day[0]['rx'];
-        $sum[1]['tx']     = $day[0]['tx'];
-        $sum[1]['rx_avg'] = $day[0]['rx_avg'];
-        $sum[1]['tx_avg'] = $day[0]['tx_avg'];
-
-        $sum[2]['act']    = 1;
-        $sum[2]['label']  = T('This month');
-        $sum[2]['rx']     = $month[0]['rx'];
-        $sum[2]['tx']     = $month[0]['tx'];
-        $sum[2]['rx_avg'] = $month[0]['rx_avg'];
-        $sum[2]['tx_avg'] = $month[0]['tx_avg'];
-
-        $sum[3]['act']    = 1;
-        $sum[3]['label']  = T('All time');
-        $sum[3]['rx']     = $trx;
-        $sum[3]['tx']     = $ttx;
-        $sum[3]['rx_avg'] = $trx_avg;
-        $sum[3]['tx_avg'] = $ttx_avg;
-    }
-
-    write_data_table(T('Top 10 days'), $top);
 }
 
 /**
@@ -146,23 +93,21 @@ function write_data_table($caption, $tab) {
     echo "<tbody>\n";
 
     for ($i = 0; $i < count($tab); ++$i) {
-        if ($tab[$i]['act'] === 1) {
-            $t      = $tab[$i]['label'];
-            $rx     = formatsize($tab[$i]['rx'], 2);
-            $tx     = formatsize($tab[$i]['tx'], 2);
-            $rx_avg = formatspeed($tab[$i]['rx_avg'], 2);
-            $tx_avg = formatspeed($tab[$i]['tx_avg'], 2);
-            $total  = formatsize($tab[$i]['rx'] + $tab[$i]['tx'], 2);
-            $id     = ($i & 1) ? 'odd' : 'even';
-            echo '<tr>';
-            echo "<td class=\"label_{$id}\" style=\"font-size:12px;text-align:right\"><b>{$t}</b></td>";
-            echo "<td class=\"numeric_{$id} text-success\" style=\"font-size:12px;text-align:right\">{$tx}</td>";
-            echo "<td class=\"numeric_{$id} text-primary\" style=\"font-size:12px;text-align:left\">{$rx}</td>";
-            echo "<td class=\"numeric_{$id} text-success\" style=\"font-size:12px;text-align:right\">{$tx_avg}</td>";
-            echo "<td class=\"numeric_{$id} text-primary\" style=\"font-size:12px;text-align:left\">{$rx_avg}</td>";
-            echo "<td class=\"numeric_{$id}\" style=\"font-size:12px;text-align:left\">{$total}</td>";
-            echo "</tr>\n";
-        }
+        $t      = $tab[$i]['label'];
+        $rx     = formatsize($tab[$i]['rx'], 2);
+        $tx     = formatsize($tab[$i]['tx'], 2);
+        $rx_avg = formatspeed($tab[$i]['rx_avg'], 2);
+        $tx_avg = formatspeed($tab[$i]['tx_avg'], 2);
+        $total  = formatsize($tab[$i]['rx'] + $tab[$i]['tx'], 2);
+        $id     = ($i % 2 === 1) ? 'odd' : 'even';
+        echo '<tr>';
+        echo "<td class=\"label_{$id}\" style=\"font-size:12px;text-align:right\"><b>{$t}</b></td>";
+        echo "<td class=\"numeric_{$id} text-success\" style=\"font-size:12px;text-align:right\">{$tx}</td>";
+        echo "<td class=\"numeric_{$id} text-primary\" style=\"font-size:12px;text-align:left\">{$rx}</td>";
+        echo "<td class=\"numeric_{$id} text-success\" style=\"font-size:12px;text-align:right\">{$tx_avg}</td>";
+        echo "<td class=\"numeric_{$id} text-primary\" style=\"font-size:12px;text-align:left\">{$rx_avg}</td>";
+        echo "<td class=\"numeric_{$id}\" style=\"font-size:12px;text-align:left\">{$total}</td>";
+        echo "</tr>\n";
     }
 
     echo '</tbody>';
@@ -180,14 +125,14 @@ get_vnstat_data();
 <div class="col-sm-12" style="padding-left:0;padding-right:0;">
   <div class="table-responsive">
     <?php
-      if ($page === 's') {
-          write_top_10();
-      } elseif ($page === 'h') {
-          write_data_table(T('Last 24 hours'), $hour);
+      if ($page === 'h') {
+          write_data_table(T('Recent hours'), $hour);
       } elseif ($page === 'd') {
           write_data_table(T('Last 30 days'), $day);
       } elseif ($page === 'm') {
           write_data_table(T('Last 12 months'), $month);
+      } elseif ($page === 't') {
+          write_data_table(T('Top 10 days'), $top);
       }
     ?>
   </div>

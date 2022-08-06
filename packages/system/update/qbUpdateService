@@ -1,3 +1,4 @@
+#!/bin/bash
 function _execute() {
 	($1 >>"${OUTTO}" 2>&1)
 }
@@ -22,9 +23,33 @@ function _error() {
 	printf ">> Error: %s\n" "$@" >>"${OUTTO}"
 }
 
+function _verlte() {
+	[  "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]
+}
+
+function _verlt() {
+	if [ "$1" = "$2" ]; then
+		return 1
+	else
+		_verlte "$1" "$2"
+	fi
+}
+
+function _download_latest_ttyd() {
+	ttyd_binary_url=$(curl -s https://api.github.com/repos/tsl0922/ttyd/releases/latest | jq -r ".assets[] | select(.name | contains(\"$(arch)\")) | .browser_download_url") >>"${OUTTO}" 2>&1
+	if wget -qO /usr/local/bin/ttyd "${ttyd_binary_url}"; then
+		echo "ttyd binary download success" >>"${OUTTO}" 2>&1
+		chmod +x /usr/local/bin/ttyd
+	else
+		echo "ttyd binary download failed" >>"${OUTTO}" 2>&1
+	fi
+}
+
 function _updateservice() {
+	_info "Updating QuickBox service..."
 	# Update nginx service
 	if [[ ! -f /install/.quickbox-ws.lock ]]; then
+		_info "QuickBox Websockets service is not installed"
 		# Install nodejs for websocks method
 		if [[ ! $(which npm) ]] || [[ $(node --version) =~ "v6" ]]; then
 			_info "Installing Node.js..."
@@ -49,6 +74,7 @@ function _updateservice() {
 			if [[ -f /tmp/nodesource_setup.sh ]]; then
 				rm nodesource_setup.sh
 			fi
+			_success "Node.js installed"
 		fi
 		# install service
 		_info "Installing Dashboard service..."
@@ -61,6 +87,7 @@ function _updateservice() {
 		_success "QuickBox service updated"
 	else
 		# upgrade to v14
+		_info "Upgrade nodejs to v14"
 		if [[ ! $(which npm) ]] || [[ ! $(node --version) =~ "v14" ]]; then
 			_info "Upgrading Node.js..."
 			cd /tmp || exit 1
@@ -83,6 +110,7 @@ function _updateservice() {
 			if [[ -f /tmp/nodesource_setup.sh ]]; then
 				rm nodesource_setup.sh
 			fi
+			_success "Node.js upgraded"
 		fi
 		_info "Reconfig Dashboard service..."
 		cd ${local_setup_dashboard}ws ||exit 1
@@ -101,18 +129,21 @@ function _updateservice() {
 	if [[ -f /install/.lecert.lock ]]; then
 		if [[ ! -f /install/domain.info ]]; then
 			cat /etc/nginx/sites-enabled/default | grep server_name | head -n 1 | tr -s ' ' | cut -d ' ' -f 3 | sed -e "s/;//" >> /install/domain.info
-			sed -zi "s/echo \" Welcome Back \!\"\necho \"    \* Dashboard:  https:\/\/.*\"\necho \"\"//g" /etc/profile
-			PUBLICIP=$(ip addr show | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | cut -d/ -f1 | head -n 1)
-			cat >/etc/profile <<EOF
-echo " Welcome Back !"
-if [[ -f /install/domain.info ]]; then
-	echo "    * Dashboard:  https://\$(cat /install/domain.info)"
-else
-	echo "    * Dashboard:  https://${PUBLICIP}"
-fi
-echo ""
-EOF
 		fi
+	fi
+	if ( grep -c '/install/domain.info' < /etc/profile > /dev/null); then
+		sed -i '/echo " Welcome Back !"/,7d' /etc/profile
+		# Install screenfetch command
+		if [[ $(dpkg -s screenfetch 2> /dev/null | grep -cow '^Status: install ok installed$') -eq '0' ]]; then
+			DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >>"${OUTTO}" 2>&1
+			DEBIAN_FRONTEND=noninteractive apt-get -y install screenfetch --allow-unauthenticated >>"${OUTTO}" 2>&1 || { local dependError=1; }
+		fi
+		chmod -x /etc/update-motd.d/*
+		\cp -f ${local_setup_template}motd/01-custom /etc/update-motd.d/01-custom
+		chmod +x /etc/update-motd.d/01-custom
+	else
+		\cp -f ${local_setup_template}motd/01-custom /etc/update-motd.d/01-custom
+		chmod +x /etc/update-motd.d/01-custom
 	fi
 	# Install at command
 	if [[ $(dpkg -s at 2> /dev/null | grep -cow '^Status: install ok installed$') -eq '0' ]]; then
@@ -159,17 +190,70 @@ location /rutorrent {
 	auth_basic "Password Required";
 	auth_basic_user_file /etc/htpasswd.d/htpasswd.\$remote_user;
 
-    location ~ \.php$
-    {
-      fastcgi_read_timeout 240;
-      fastcgi_pass  unix:/run/php/php7.4-fpm.sock;
-      include snippets/fastcgi-php.conf;
-      fastcgi_param SCRIPT_FILENAME /srv\$fastcgi_script_name;
-    }
+	location ~ \.php$
+	{
+		fastcgi_read_timeout 240;
+		fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+		include snippets/fastcgi-php.conf;
+		fastcgi_param SCRIPT_FILENAME /srv\$fastcgi_script_name;
+	}
 }
 NGX
 			_success "rutorrent config updated..."
 		fi
+	fi
+	# Replace webshell
+	if (! which jq > /dev/null); then
+		_execute "apt-get install -y jq"
+	fi
+	if [[ ! -f /etc/systemd/system/ttyd.service ]]; then
+		_info "replace shellinabox with ttyd"
+		# stop shellinabox
+		_execute "systemctl stop shellinabox.service"
+		_execute "systemctl disable shellinabox.service"
+		rm -f /install/.shellinabox.lock >/dev/null 2>&1
+		_execute "apt-get remove -y shellinabox"
+
+		# install ttyd and service config
+		_download_latest_ttyd
+		service ttyd stop >/dev/null 2>&1
+		rm -f /etc/init.d/ttyd >/dev/null 2>&1
+
+		cat > /etc/nginx/apps/"${username}".console.conf <<WEBC
+location /${username}.console/ {
+	proxy_pass http://127.0.0.1:4200;
+	rewrite ^/${username}.console(.*) /\$1 break;
+	auth_basic "password Required";
+	auth_basic_user_file /etc/htpasswd;
+	proxy_set_header Upgrade \$http_upgrade;
+	proxy_set_header Connection "upgrade";
+}
+WEBC
+		cp ${local_setup_template}systemd/ttyd.service.template /etc/systemd/system/ttyd.service
+		sed -i "s/USERNAME/${username}/g" /etc/systemd/system/ttyd.service
+
+		# enable ttyd service
+		_execute "systemctl daemon-reload"
+		_execute "systemctl enable ttyd.service"
+		_execute "systemctl start ttyd.service"
+		# create lock
+		touch /install/.ttyd.lock
+	fi
+	# check ttyd update
+	if ! which ttyd > /dev/null; then
+		_warning "ttyd do not exists"
+	fi
+	local current_version
+	local latest_version
+	current_version=$(ttyd -v | awk '{print $3}') 2> /dev/null
+	current_version=${current_version%-*}
+	latest_version=$(curl -s https://api.github.com/repos/tsl0922/ttyd/releases/latest | jq -r ".tag_name")
+	_info "ttyd current version: ${current_version}, latest version: ${latest_version}"
+	if (_verlt "$current_version" "$latest_version"); then
+		_info "ttyd update available"
+		_download_latest_ttyd
+		_execute "systemctl restart ttyd.service"
+		_info "ttyd update success"
 	fi
 }
 

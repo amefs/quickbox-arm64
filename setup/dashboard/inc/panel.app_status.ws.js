@@ -1,4 +1,4 @@
-/* global io,Visibility */
+/* global Visibility, socket */
 "use strict";
 
 (function ($) {
@@ -83,6 +83,11 @@
     id: "#appstat_plexmediaserver",
     time: 5000
   }, {
+    key: "RCLONE",
+    url: "/widgets/service_status.php?service=rclone-web",
+    id: "#appstat_rclone-web",
+    time: 5000
+  }, {
     key: "RTORRENT",
     url: "/widgets/service_status.php?service=rtorrent",
     id: "#appstat_rtorrent",
@@ -103,14 +108,19 @@
     id: "#appstat_qbittorrent",
     time: 5000
   }, {
+    key: "WEBDAV",
+    url: "/widgets/service_status.php?service=webdav",
+    id: "#appstat_webdav",
+    time: 5000
+  }, {
     key: "VSFTPD",
     url: "/widgets/service_status.php?service=vsftpd",
     id: "#appstat_vsftpd",
     time: 5000
   }, {
     key: "WEB_CONSOLE",
-    url: "/widgets/service_status.php?service=shellinabox",
-    id: "#appstat_shellinabox",
+    url: "/widgets/service_status.php?service=ttyd",
+    id: "#appstat_ttyd",
     time: 5000
   }, {
     key: "X2GO",
@@ -234,7 +244,6 @@
       }
       task_mapping[status.key] = status;
     }
-    const socket = io(location.origin, { path: "/ws/socket.io" });
     // add event listener
     socket.on("message", function (response) {
       if (response.success) {

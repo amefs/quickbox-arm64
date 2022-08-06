@@ -7,7 +7,7 @@ class SystemInfo {
     public static function loadavg() {
         $loadavg       = shell_exec("uptime | awk -F ': ' '{ print $2; }'");
         $process_count = shell_exec('ps ax | wc -l');
-        if (!$loadavg || !$process_count) {
+        if (!is_string($loadavg) || !is_string($process_count)) {
             return '';
         }
 
@@ -23,7 +23,7 @@ class SystemInfo {
             'model' => '<h4>Unknown</h4>',
             'count' => '-',
         ];
-        if (!$info) {
+        if (!is_array($info)) {
             return $res;
         }
 
@@ -56,7 +56,7 @@ class SystemInfo {
     public static function meminfo() {
         $info = @file('/proc/meminfo');
         $res  = [];
-        if (!$info) {
+        if (!is_array($info)) {
             return $res;
         }
         foreach ($info as $line) {
@@ -67,10 +67,10 @@ class SystemInfo {
         $res['MemUsed']    = $res['MemTotal'] - $res['MemFree'];
         $res['MemPercent'] = $res['MemUsed'] / $res['MemTotal'] * 100;
 
-        $res['MemRealUsed']    = $res['MemUsed'] - $res['Cached'] - $res['Buffers']; //Real memory usage
-        $res['MemRealFree']    = $res['MemTotal'] - $res['MemRealUsed']; //Real idle
-        $res['MemRealPercent'] = $res['MemRealUsed'] / $res['MemTotal'] * 100; //Real memory usage
-        $res['CachedPercent']  = $res['Cached'] / $res['MemTotal'] * 100; //Cached memory usage
+        $res['MemRealUsed']    = $res['MemUsed'] - $res['Cached'] - $res['Buffers']; // Real memory usage
+        $res['MemRealFree']    = $res['MemTotal'] - $res['MemRealUsed']; // Real idle
+        $res['MemRealPercent'] = $res['MemRealUsed'] / $res['MemTotal'] * 100; // Real memory usage
+        $res['CachedPercent']  = $res['Cached'] / $res['MemTotal'] * 100; // Cached memory usage
 
         $res['SwapUsed']    = $res['SwapTotal'] - $res['SwapFree'];
         $res['SwapPercent'] = $res['SwapUsed'] / $res['SwapTotal'] * 100;
@@ -84,7 +84,7 @@ class SystemInfo {
     public static function netinfo() {
         $info = @file('/proc/net/dev');
         $res  = [];
-        if (!$info) {
+        if (!is_array($info)) {
             return $res;
         }
 
@@ -108,7 +108,7 @@ class SystemInfo {
     public static function enuminterface() {
         $info = @file('/proc/net/dev');
         $res  = [];
-        if (!$info) {
+        if (!is_array($info)) {
             return $res;
         }
         for ($i = 2; $i < count($info); ++$i) {

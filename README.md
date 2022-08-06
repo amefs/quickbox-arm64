@@ -22,7 +22,7 @@ This project is a modified version of QuickBox community edition. Most functions
 
 ## Script status
 
-![Version](https://img.shields.io/badge/version-1.0.0-orange?style=flat-square)![GNU v3.0 License](https://img.shields.io/badge/license-GNU%20v3.0%20License-blue.svg?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.1.0-orange?style=flat-square)![GNU v3.0 License](https://img.shields.io/badge/license-GNU%20v3.0%20License-blue.svg?style=flat-square)
 
 This script is still in development and cannot be guaranteed to be stable, please use the Wiki/issue to find a solution. It has only been tested on BPI-M5 platform.
 

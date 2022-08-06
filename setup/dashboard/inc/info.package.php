@@ -257,6 +257,20 @@ $packageList = [
             ],
         ],
     ], [
+        'package'     => 'rclone',
+        'name'        => 'Rclone',
+        'description' => 'RCLONE',
+        'lockfile'    => "/install/.{$username}.rclone.lock",
+        'uninstall'   => 'UNINSTALL_RCLONE_TXT',
+        'boxonly'     => false,
+        'services'    => [
+            'rclone-web' => [
+                'process'  => 'rcd',
+                'name'     => 'Rclone',
+                'username' => $username,
+            ],
+        ],
+    ], [
         'package'     => 'rtorrent',
         'name'        => 'rTorrent',
         'description' => 'RTORRENT',
@@ -350,6 +364,20 @@ $packageList = [
             ],
         ],
     ], [
+        'package'     => 'webdav',
+        'name'        => 'WebDAV',
+        'description' => 'WEBDAV',
+        'lockfile'    => "/install/.{$username}.webdav.lock",
+        'uninstall'   => 'UNINSTALL_WEBDAV_TXT',
+        'boxonly'     => false,
+        'services'    => [
+            'webdav' => [
+                'process'  => 'webdav',
+                'name'     => 'WebDAV',
+                'username' => $username,
+            ],
+        ],
+    ], [
         'skip'     => true,
         'package'  => 'vsftpd',
         'name'     => 'vsFTPD',
@@ -363,14 +391,14 @@ $packageList = [
         ],
     ], [
         'skip'     => true,
-        'package'  => 'shellinabox',
+        'package'  => 'ttyd',
         'name'     => 'Web Console',
-        'lockfile' => '/install/.shellinabox.lock',
+        'lockfile' => '/install/.ttyd.lock',
         'services' => [
-            'shellinabox' => [
-                'process'  => 'shellinabox',
+            'ttyd' => [
+                'process'  => 'ttyd',
                 'name'     => 'Web Console',
-                'username' => 'shellinabox',
+                'username' => $username,
             ],
         ],
     ],
@@ -457,6 +485,12 @@ $menuList = [
         'ref'     => $packageMap['plex'],
         'url'     => '/web/',
         'logo'    => 'img/brands/plex.png',
+    ], [
+        'name'    => 'Rclone',
+        'service' => true,
+        'ref'     => $packageMap['rclone'],
+        'url'     => '/rclone/',
+        'logo'    => 'img/brands/rclone.png',
     ], [
         'name'    => 'SpeedTest',
         'service' => false,
@@ -556,12 +590,12 @@ function __check_package_config($package) {
     assert(array_key_exists('package', $package));
     assert(array_key_exists('name', $package));
     $skip = array_key_exists('skip', $package) ? $package['skip'] : false;
-    if (!$skip) {
+    if ($skip === false) {
         assert(array_key_exists('description', $package));
         assert(array_key_exists('lockfile', $package));
         assert(array_key_exists('boxonly', $package));
         $boxonly = $package['boxonly'];
-        if ($boxonly) {
+        if ($boxonly === true) {
             assert(array_key_exists('install', $package));
         } else {
             assert(array_key_exists('uninstall', $package));

@@ -4,7 +4,7 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.0.0
+# Current version:  v1.1.0
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
@@ -93,7 +93,7 @@ function _help() {
 	echo "                                  blank to use batch install"
 	echo "remove <appname>                  remove installed application"
 	echo "update <appname>                  upgrade installed application"
-	echo "lang <de|dk|en|es|fr|zh>          change dashboard language"
+	echo "lang <da|de|en|es|fr|zh>          change dashboard language"
 	echo "clean <mem|log>                   clean memory or installation log"
 	echo "fix <dpkg|interface|home>         fix your setting"
 	echo "set <interface|passwd|cdn>        change interface setting/password"
@@ -112,8 +112,8 @@ resolver=$1
 if [[ $resolver == "lang" ]]; then
 	langname=$2
 	case $langname in
+	"da" | "dansk" | "danish" | "lang_da") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_da ;;
 	"de" | "deutsch" | "germany" | "lang_de") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_de ;;
-	"dk" | "dansk" | "danish" | "lang_dk") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_dk ;;
 	"en" | "en-us" | "english" | "lang_en") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_en ;;
 	"es" | "spanish" | "lang_es") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_es ;;
 	"fr" | "french" | "lang_fr") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_fr ;;
@@ -122,12 +122,13 @@ if [[ $resolver == "lang" ]]; then
 	echo -e "\nQuickBox ARM64 Cli Tools"
 	echo -e "\nUsage: \n$(basename "$0") lang LANGUAGE"
 	echo -e "\nAvailable language:\n"
-	echo  "germany"
 	echo  "danish"
+	echo  "germany"
 	echo  "english"
 	echo  "spanish"
 	echo  "french"
 	echo  "chinese"
+	exit 1
 	;;
 	esac
 fi
@@ -236,7 +237,7 @@ if [[ $resolver == "set" ]]; then
 		chown -R www-data: /srv/dashboard
 		;;
 	"passwd" | "password")
-		bash /usr/local/bin/quickbox/system/users/changePass -p "${*:3}"
+		bash /usr/local/bin/quickbox/system/users/changePass -p ${*:3}
 		;;
 	"cdn")
 		case "$3" in
@@ -263,7 +264,7 @@ if [[ $resolver == "fix" ]]; then
 	case $command in
 	"dpkg" | "lock") bash /usr/local/bin/quickbox/system/auxiliary/fixDpkg ;;
 	"interface") bash /usr/local/bin/quickbox/system/auxiliary/set_interface ;;
-	"home") bash /usr/local/bin/quickbox/system/auxiliary/fixHome "${*:3}" ;;
+	"home") bash /usr/local/bin/quickbox/system/auxiliary/fixHome ${*:3} ;;
 	*)
 		_error "Nothing to be fixed"
 		echo -e "\nQuickBox ARM64 Cli Tools"
@@ -277,15 +278,15 @@ if [[ $resolver == "fix" ]]; then
 fi
 
 if [[ $resolver =~ ("iotest"|"disktest") ]]; then
-	bash /usr/local/bin/quickbox/system/auxiliary/iotest "${*:2}"
+	bash /usr/local/bin/quickbox/system/auxiliary/iotest ${*:2}
 fi
 
 if [[ $resolver == "unban" ]]; then
 	if [[ -f /install/.denyhosts.lock ]]; then
-		bash /usr/local/bin/quickbox/system/auxiliary/denyunban "${*:2}"
+		bash /usr/local/bin/quickbox/system/auxiliary/denyunban ${*:2}
 	fi
 	if [[ -f /install/.fail2ban.lock ]]; then
-		bash /usr/local/bin/quickbox/system/auxiliary/failunban "${*:2}"
+		bash /usr/local/bin/quickbox/system/auxiliary/failunban ${*:2}
 	fi
 fi
 

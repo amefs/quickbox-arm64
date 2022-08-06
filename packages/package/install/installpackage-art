@@ -4,7 +4,7 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.0.0
+# Current version:  v1.1.0
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
@@ -137,6 +137,7 @@ function _installPy(){
 	versions=$(/opt/pyenv/bin/pyenv versions)
 	if [[ ! $versions =~ $version ]]; then
 	_info "Preparing Python $version. This may take some time ... "
+		_execute "/opt/pyenv/bin/pyenv update"
 		_execute "/opt/pyenv/bin/pyenv install $version"
 		_success "Python ${version} installed"
 		if [[ ${major_version} == "2" ]]; then
@@ -226,8 +227,8 @@ function _installApp() {
 	_info "Building ${APP_TITLE}..."
 
 	# Install for single user
-	_installPy 3.7.7
-	_initPyVenv 3.7.7 /home/${username}/.local/autoremovetorrents ${username}
+	_installPy 3.9.13
+	_initPyVenv 3.9.13 /home/${username}/.local/autoremovetorrents ${username}
 	chown -R ${username}.${username} /home/${username}/.local
 	cd /home/${username}/.local/autoremovetorrents
 	_info "Installing requirements... "

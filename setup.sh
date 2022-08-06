@@ -4,7 +4,7 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.0.0
+# Current version:  v1.1.0
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
@@ -109,9 +109,11 @@ function _init() {
 		DEBIAN_FRONTEND=noninteractive apt-get -qq -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >/dev/null 2>&1
 		echo -e "XXX\n10\nPreparing scripts... \nXXX"
 		if [[ $DISTRO == Ubuntu && $CODENAME =~ ("bionic"|"focal") ]]; then
-			apt-get -y install git curl wget dos2unix python apt-transport-https software-properties-common dnsutils unzip >/dev/null 2>&1
+			apt-get -y install git curl wget dos2unix python apt-transport-https software-properties-common dnsutils unzip jq >/dev/null 2>&1
+		elif [[ $DISTRO == Ubuntu && $CODENAME =~ ("jammy") ]]; then
+			apt-get -y install git curl wget dos2unix python3 apt-transport-https software-properties-common dnsutils unzip jq >/dev/null 2>&1
 		elif [[ $DISTRO == Debian ]]; then
-			apt-get -y install git curl wget dos2unix python apt-transport-https software-properties-common gnupg2 ca-certificates dnsutils unzip >/dev/null 2>&1
+			apt-get -y install git curl wget dos2unix python apt-transport-https software-properties-common gnupg2 ca-certificates dnsutils unzip jq >/dev/null 2>&1
 		fi
 		echo -e "XXX\n20\nPreparing scripts... \nXXX"
 		dos2unix $(find ${local_prefix} -type f) >/dev/null 2>&1
@@ -203,7 +205,7 @@ function _checkdistro() {
 		whiptail --title "$ERROR_TITLE_OS" --msgbox "${ERROR_TEXT_DESTRO_1}${DISTRO}${ERROR_TEXT_DESTRO_2}" --ok-button "$BUTTON_OK" 8 72
 		_defaultcolor
 		exit 1
-	elif [[ ! "$CODENAME" =~ ("bionic"|"buster"|"focal") ]]; then
+	elif [[ ! "$CODENAME" =~ ("bionic"|"buster"|"bullseye"|"focal"|"jammy") ]]; then
 		_errorcolor
 		whiptail --title "$ERROR_TITLE_OS" --msgbox "${ERROR_TEXT_CODENAME_1}${DISTRO}${ERROR_TEXT_CODENAME_2}" --ok-button "$BUTTON_OK" 8 72
 		_defaultcolor
@@ -300,7 +302,7 @@ function _askchport() {
 
 function _changeport() {
 	if [[ -e /etc/ssh/sshd_config ]]; then
-		sed -i "s/#*Port 22/Port $chport/g" /etc/ssh/sshd_config
+		sed -i "s/#*Port\s[0-9]*/Port $chport/g" /etc/ssh/sshd_config
 		service ssh restart >>"${OUTTO}" 2>&1
 	fi
 }
@@ -723,7 +725,7 @@ function _preinsngx() {
 function _dependency() {
 	_addPHP
 	_preinsngx
-	DEPLIST="sudo at bc build-essential curl wget subversion ssl-cert php7.4-cli php7.4-fpm php7.4 php7.4-dev php7.4-memcached memcached php7.4-curl php7.4-gd php7.4-geoip php7.4-json php7.4-mbstring php7.4-opcache php7.4-xml php7.4-xmlrpc php7.4-zip libfcgi0ldbl mcrypt libmcrypt-dev nano python-dev unzip htop iotop vnstat vnstati automake make openssl net-tools debconf-utils ntp rsync"
+	DEPLIST="sudo at bc build-essential curl wget subversion ssl-cert php7.4-cli php7.4-fpm php7.4 php7.4-dev php7.4-memcached memcached php7.4-curl php7.4-gd php7.4-geoip php7.4-json php7.4-mbstring php7.4-opcache php7.4-xml php7.4-xmlrpc php7.4-zip libfcgi0ldbl mcrypt libmcrypt-dev nano python-dev unzip htop iotop vnstat vnstati automake make openssl net-tools debconf-utils ntp rsync screenfetch"
 	for depend in $DEPLIST; do
 		# shellcheck disable=SC2154
 		echo -e "XXX\n12\n$INFO_TEXT_PROGRESS_Extra_2${depend}\nXXX"
@@ -825,49 +827,42 @@ function _insnodejs() {
 }
 
 function _webconsole() {
-	# setup webconsole for dashboard
-	PUBLICIP=$(ip addr show | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | cut -d/ -f1 | head -n 1)
-	cat >/etc/profile <<EOF
-echo " Welcome Back !"
-if [[ -f /install/domain.info ]]; then
-	echo "    * Dashboard:  https://\$(cat /install/domain.info)"
-else
-	echo "    * Dashboard:  https://${PUBLICIP}"
-fi
-echo ""
-EOF
-	# install shellinabox and service config
-	apt-get -y install shellinabox >>"${OUTTO}" 2>&1
-	service shellinabox stop >/dev/null 2>&1
-	rm -rf /etc/init.d/shellinabox
+	chmod -x /etc/update-motd.d/*
+	\cp -f ${local_setup_template}motd/01-custom /etc/update-motd.d/01-custom
+	chmod +x /etc/update-motd.d/01-custom
+	# install ttyd and service config
+	ttyd_binary_url=$(curl -s https://api.github.com/repos/tsl0922/ttyd/releases/latest | jq -r ".assets[] | select(.name | contains(\"$(arch)\")) | .browser_download_url") >>"${OUTTO}" 2>&1
+	if wget -qO /usr/local/bin/ttyd "${ttyd_binary_url}"; then
+		echo "ttyd binary download success" >>"${OUTTO}" 2>&1
+		chmod +x /usr/local/bin/ttyd
+	else
+		echo "ttyd binary download failed" >>"${OUTTO}" 2>&1
+	fi
+	service ttyd stop >/dev/null 2>&1
+	rm -f /etc/init.d/ttyd >/dev/null 2>&1
 
 	if [[ ! -f /etc/nginx/apps/"${username}".console.conf ]]; then
 		cat > /etc/nginx/apps/"${username}".console.conf <<WEBC
 location /${username}.console/ {
-    proxy_pass        http://127.0.0.1:4200;
-    #auth_basic "What's the password?";
-    #auth_basic_user_file /etc/htpasswd.d/htpasswd.${username};
+    proxy_pass http://127.0.0.1:4200;
+    rewrite ^/${username}.console(.*) /\$1 break;
+    auth_basic "password Required";
+    auth_basic_user_file /etc/htpasswd;
+    proxy_set_header Upgrade \$http_upgrade;
+    proxy_set_header Connection "upgrade";
 }
 WEBC
 	fi
-	if (grep -q "disable-ssl" /etc/default/shellinabox); then
-		sed -i 's/SHELLINABOX_ARGS="/SHELLINABOX_ARGS="--disable-ssl /g' /etc/default/shellinabox
-	fi
-	if (grep -q "localhost-only" /etc/default/shellinabox); then
-		sed -i 's/SHELLINABOX_ARGS="/SHELLINABOX_ARGS="--localhost-only /g' /etc/default/shellinabox
-	fi
 
-	cp ${local_setup_template}systemd/shellinabox.service.template /etc/systemd/system/shellinabox.service
-	cp ${local_setup_template}webconsole/00_QuickConsole.css.template /etc/shellinabox/options-enabled/00_QuickConsole.css
-	chmod +x /etc/shellinabox/options-enabled/00_QuickConsole.css
-	chmod 777 /etc/shellinabox/options-enabled/00_QuickConsole.css
+	cp ${local_setup_template}systemd/ttyd.service.template /etc/systemd/system/ttyd.service
+	sed -i "s/USERNAME/${username}/g" /etc/systemd/system/ttyd.service
 
-	# enable shellinabox service
+	# enable ttyd service
 	systemctl daemon-reload >/dev/null 2>&1
-	systemctl enable shellinabox.service >/dev/null 2>&1
-	systemctl start shellinabox.service >/dev/null 2>&1
+	systemctl enable ttyd.service >/dev/null 2>&1
+	systemctl start ttyd.service >/dev/null 2>&1
 	# create lock
-	touch /install/.shellinabox.lock
+	touch /install/.ttyd.lock
 }
 
 function _insdashboard() {
@@ -892,22 +887,14 @@ function _insdashboard() {
 	case $uilang in
 	"en")
 		bash /usr/local/bin/quickbox/system/lang/langSelect-lang_en >/dev/null 2>&1
-		touch /install/.lang_en.lock
 		;;
 	"zh")
-		bash /usr/local/bin/quickbox/system/lang/langSelect-lang_zh-cn >/dev/null 2>&1
-		touch /install/.lang_zh.lock
+		bash /usr/local/bin/quickbox/system/lang/langSelect-lang_zh >/dev/null 2>&1
 		;;
 	*)
 		bash /usr/local/bin/quickbox/system/lang/langSelect-lang_en >/dev/null 2>&1
-		touch /install/.lang_en.lock
 		;;
 	esac
-	if [[ $(vnstat -v | grep -Eo "[0-9.]+" | cut -d . -f1) == "1" ]]; then
-		\cp -f /srv/dashboard/widgets/vnstat-raw.php /srv/dashboard/widgets/vnstat.php
-	elif [[ $(vnstat -v | grep -Eo "[0-9.]+" | cut -d . -f1) == "2" ]]; then
-		\cp -f /srv/dashboard/widgets/vnstat-json.php /srv/dashboard/widgets/vnstat.php
-	fi
 	touch /install/.dashboard.lock
 	cd /srv/dashboard/ws || exit 1
 	npm ci --production >>"${OUTTO}" 2>&1
@@ -1178,7 +1165,11 @@ function _startinstall() {
 function _summary() {
 	# Summary list
 	ip=$(ip addr show | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | cut -d/ -f1 | head -n 1)
-	sshport=$(grep -e '#*Port 22' < /etc/ssh/sshd_config | grep -Eo "[0-9]+" )
+	if [[ ${chport} == "default" ]]; then
+		sshport=$(grep -e '#*Port 22' < /etc/ssh/sshd_config | grep -Eo "[0-9]+" )
+	else
+		sshport=${chport}
+	fi
 	if (whiptail --title "$INFO_TITLE_SUMMARY" --yesno "${INFO_TEXT_SUMMARY_1}\n\n\
 ${INFO_TEXT_SUMMARY_2} $(echo "$OUTTO" | cut -d " " -f 1)\n\
 $(if [[ $domain != "" ]]; then printf "${INFO_TEXT_SUMMARY_20} $domain"; fi)\n\
@@ -1348,7 +1339,7 @@ while true; do
 		count=0
 		reserved_names=('adm' 'admin' 'audio' 'backup' 'bin' 'cdrom' 'crontab' 'daemon' 'dialout' 'dip' 'disk' 'fax' 'floppy' 'fuse' 'games' 'gnats' 'irc' 'kmem' 'landscape' 'libuuid' 'list' 'lp' 'mail' 'man' 'messagebus' 'mlocate' 'netdev' 'news' 'nobody' 'nogroup' 'operator' 'plugdev' 'proxy' 'root' 'sasl' 'shadow' 'src' 'ssh' 'sshd' 'staff' 'sudo' 'sync' 'sys' 'syslog' 'tape' 'tty' 'users' 'utmp' 'uucp' 'video' 'voice' 'whoopsie' 'www-data')
 		count=$(echo -n "$username" | wc -c)
-		if $(echo "${reserved_names[@]}" | grep -wq "$username"); then
+		if echo "${reserved_names[@]}" | grep -wq "$username"; then
 			_error "Do not use reversed user name !"
 			exit 1
 		elif [[ $count -lt 3 || $count -gt 32 ]]; then
