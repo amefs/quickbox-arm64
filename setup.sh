@@ -130,6 +130,7 @@ function _init() {
 		apt-get -qq -y install net-tools >/dev/null 2>&1
 		echo -e "XXX\n50\nGetting network status... Done.\nXXX"
 		sleep 0.5
+		#shellcheck disable=SC2030
 		IPV6=$(wget -t1 -T5 -qO- v6.ipv6-test.com/api/myip.php | grep -Eo "[0-9a-z:]+" | head -1)
 
 		# remove Apache
@@ -710,16 +711,17 @@ DPHP
 }
 
 function _preinsngx() {
-	DEBIAN_FRONTEND=noninteractive apt-get -y --allow-unauthenticated -f install nginx >>${OUTTO} 2>&1
-	systemctl stop nginx.service >>${OUTTO} 2>&1
+	DEBIAN_FRONTEND=noninteractive apt-get -y --allow-unauthenticated -f install nginx >>"${OUTTO}" 2>&1
+	systemctl stop nginx.service >>"${OUTTO}" 2>&1
 	mkdir -p /var/log/nginx/
 	chown -R www-data.www-data /var/log/nginx/
 	# disable ipv6 if not exist
-	if [[ -z ${IPV6} ]]; then
+	#shellcheck disable=SC2031
+	if [[ -z "${IPV6}" ]]; then
 		sed -i 's/listen \[::\]:80 default_server;/#listen \[::\]:80 default_server;/g' /etc/nginx/sites-enabled/default
 		sed -i 's/listen \[::\]:443 ssl http2 default_server;/#listen \[::\]:443 ssl http2 default_server;/g' /etc/nginx/sites-enabled/default
 	fi
-	DEBIAN_FRONTEND=noninteractive apt-get -y --allow-unauthenticated -f install nginx-extras >>${OUTTO} 2>&1
+	DEBIAN_FRONTEND=noninteractive apt-get -y --allow-unauthenticated -f install nginx-extras >>"${OUTTO}" 2>&1
 }
 
 function _dependency() {
@@ -748,6 +750,7 @@ function _insngx() {
 	rm -rf /etc/nginx/sites-enabled/default
 	cp ${local_setup_template}nginx/default.template /etc/nginx/sites-enabled/default
 	# disable ipv6 if not exist
+	#shellcheck disable=SC2031
 	if [[ -z ${IPV6} ]]; then
 		sed -i 's/listen \[::\]:80 default_server;/#listen \[::\]:80 default_server;/g' /etc/nginx/sites-enabled/default
 		sed -i 's/listen \[::\]:443 ssl http2 default_server;/#listen \[::\]:443 ssl http2 default_server;/g' /etc/nginx/sites-enabled/default
