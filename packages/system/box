@@ -4,17 +4,12 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.1.0
+# Current version:  v1.1.2
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
 #
-#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
-#
-#   You may copy, distribute and modify the software as long as you track
-#   changes/dates in source files. Any modifications to our software
-#   including (via compiler) GPL-licensed code must also be made available
-#   under the GPL along with build & install instructions.
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # shellcheck disable=SC1090,SC1091,SC2034,SC2129
 #################################################################################
@@ -117,7 +112,7 @@ if [[ $resolver == "lang" ]]; then
 	"en" | "en-us" | "english" | "lang_en") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_en ;;
 	"es" | "spanish" | "lang_es") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_es ;;
 	"fr" | "french" | "lang_fr") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_fr ;;
-	"zh" | "zh-cn" | "chinese" | "lang_zh-cn" | "lang_zh") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_zh-cn ;;
+	"zh" | "zh-cn" | "chinese" | "lang_zh-cn" | "lang_zh") bash /usr/local/bin/quickbox/system/lang/langSelect-lang_zh ;;
 	*)
 	echo -e "\nQuickBox ARM64 Cli Tools"
 	echo -e "\nUsage: \n$(basename "$0") lang LANGUAGE"

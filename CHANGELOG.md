@@ -1,3 +1,19 @@
+## CHANGELOG v1.1.2:
+
+*Changelog update Thursday, Nov 2, 2023*
+
+### General additions
+
+- Porting QuickBox lite to arm64 architecture. For more information see QuickBox lite v1.5.8
+
+### Function improved
+
+### Function updated
+
+### Bug fixed
+
+---
+
 ## CHANGELOG v1.1.0:
 
 *Changelog update Friday, Jul 21, 2022*

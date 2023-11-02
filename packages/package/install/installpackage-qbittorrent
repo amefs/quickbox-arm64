@@ -4,17 +4,12 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.1.0
+# Current version:  v1.1.2
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
 #
-#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
-#
-#   You may copy, distribute and modify the software as long as you track
-#   changes/dates in source files. Any modifications to our software
-#   including (via compiler) GPL-licensed code must also be made available
-#   under the GPL along with build & install instructions.
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 #################################################################################
 #################################################################################
@@ -314,10 +309,18 @@ function _installLibt() {
 		DEB=${LIBTBIN}
 		_download ${PACKAGE} ${DEB}
 		_execute "apt-get -y --allow-unauthenticated --allow-downgrades -f install  /tmp/${LIBTBIN}"
+		# disable auto upgrade
+		if [[ ${libt_major_version} == "1.1" ]]; then
+			_execute "apt-mark hold libtorrent-rasterbar9"
+		elif [[ ${libt_major_version} == "1.2" ]]; then
+			_execute "apt-mark hold libtorrent-rasterbar10"
+		fi
 		LIBTDEVBIN=libtorrent-rasterbar-dev_${libtversion}-1build1_arm64.deb
 		DEB=${LIBTDEVBIN}
 		_download ${PACKAGE} ${DEB}
 		_execute "apt-get -y --allow-unauthenticated --allow-downgrades -f install  /tmp/${LIBTDEVBIN}"
+		# disable auto upgrade
+		_execute "apt-mark hold libtorrent-rasterbar-dev"
 		rm -rf {${LIBTBIN},${LIBTDEVBIN}}
 		if [[ ${libt_major_version} == "1.1" ]]; then
 			touch /install/.libtorrent-rasterbar9.lock
@@ -331,10 +334,6 @@ function _installLibt() {
 		APP_BASEDEPS="build-essential libgl1-mesa-dev libssl-dev libboost-dev libboost-system-dev libboost-chrono-dev libboost-random-dev libboost-python-dev python python-dev python3 python3-dev pkg-config automake libtool git libgeoip-dev zlib1g-dev"
 		_installDepends
 		_installFpm
-		if [ ${CODENAME} == 'xenial' ]; then
-			_execute "apt purge -y libssl-dev"
-			_execute "apt install -y libssl-dev=1.0.*"
-		fi
 		_info "Build libtorrent for qBittorrent ... "
 		if [[ ${libt_major_version} == "1.2" ]]; then
 			LTRC=RC_1_2
@@ -416,6 +415,8 @@ function _installLibt() {
 		_execute "make install"
 		fpm -f -C /tmp/dist/libtorrent-rasterbar -p /root/pool/libtorrent-rasterbar_${libtversion}.deb -s dir -t deb -n libtorrent-rasterbar --version ${libtversion} --description "libtorrent-rasterbar compiled by QuickBox ARM64" >>${OUTTO} 2>&1
 		_execute "dpkg -i /root/pool/libtorrent-rasterbar_${libtversion}.deb"
+		# disable auto upgrade
+		_execute "apt-mark hold libtorrent-rasterbar"
 		echo ${libtversion} >/install/.libtorrent-rasterbar.lock
 		_success "Libtorrent built ..."
 		ldconfig
@@ -428,17 +429,6 @@ function _installqBit() {
 	if $(echo "${qbit_version_list[@]}" | grep -wq "${qbitversion}"); then
 		_info "Installing ${APP_TITLE}..."
 		cd /tmp
-		if (_version_gt ${qbitversion} 4.1.9.1); then
-			if [[ "$CODENAME" =~ ("xenial"|"stretch") ]]; then
-				PACKAGE="qt5"
-				cd /tmp
-				QTBIN=qt512base_5.12.6-1basyskom1_arm64.deb
-				DEB=${QTBIN}
-				_download ${PACKAGE} ${DEB}
-				_execute "apt-get -y --allow-unauthenticated --allow-downgrades -f install /tmp/${QTBIN}"
-				rm -rf ${QTBIN}
-			fi
-		fi
 		PACKAGE="qbittorrent"
 		QBITBIN=qbittorrent-nox_${qbitversion}-libt${libt_major_version}-1build1_arm64.deb
 		DEB=${QBITBIN}
@@ -452,36 +442,9 @@ function _installqBit() {
 		# prepare package toolchain
 		APP_BASEDEPS="build-essential libgl1-mesa-dev libssl-dev libboost-dev libboost-system-dev libboost-chrono-dev libboost-random-dev libboost-python-dev python python-dev python3 python3-dev pkg-config automake libtool git screen libgeoip-dev qtbase5-dev qttools5-dev-tools libqt5svg5-dev zlib1g-dev"
 		_info "Adding additional keys and sources ${APP_TITLE}..."
-		if [ $CODENAME == "xenial" ] && $(grep -qv 'xenial-updates'< /etc/apt/sources.list); then
-			cat > /etc/apt/sources.list.d/xenial-updates.list <<LIST
-deb http://us.archive.ubuntu.com/ubuntu/ xenial-updates main
-LIST
-			_success "Keys and sources added."
-		elif [ $CODENAME == "stretch" ] && $(grep -qv 'stretch-backports'< /etc/apt/sources.list); then
-			cat > /etc/apt/sources.list.d/stretch-backports.list <<LIST
-deb http://deb.debian.org/debian stretch-backports main	
-LIST
-			_success "Keys and sources added."
-		fi
 		DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >/dev/null 2>&1
 		_installDepends
 		_installFpm
-		if (_version_gt ${qbitversion} 4.1.9.1); then
-			if [[ "$CODENAME" =~ ("xenial"|"stretch") ]]; then
-				PACKAGE="qt5"
-				cd /tmp
-				DEBASE="qt512base_5.12.6-1basyskom1_arm64.deb qt512xmlpatterns_5.12.6-1basyskom1_arm64.deb qt512declarative_5.12.6-1basyskom1_arm64.deb qt512svg_5.12.6-1basyskom1_arm64.deb qt512tools_5.12.6-1basyskom1_arm64.deb"
-				for DEB in $DEBASE; do
-					_download ${PACKAGE} ${DEB}
-					_execute "apt-get -y --allow-unauthenticated -f install /tmp/${DEB}"
-					rm -rf /tmp/${DEB}
-				done
-				source /opt/qt512/bin/qt512-env.sh
-				if [[ ! -f /usr/bin/lrelease-qt5 ]]; then
-					ln -s /usr/lib/x86_64-linux-gnu/qt5/bin/lrelease /usr/bin/lrelease-qt5
-				fi
-			fi
-		fi
 		cd /tmp
 		_info "Building $APP_TITLE ... "
 		_execute "git clone ${BRANCH_QBIT} qBittorrent"
@@ -563,7 +526,7 @@ function _installApp() {
 	if [ -z "${qbitversion}" ]; then
 		qbitversion=${qbitversion_default}
 	fi
-	if [[ "${CODENAME}" == "bullseye" ]] && (_version_gt "4.2.0"  ${qbitversion}); then
+	if [[ "$CODENAME" =~ ("bullseye"|"bookworm") ]] && (_version_gt "4.2.0"  ${qbitversion}); then
 		qbitversion=${qbitversion_default}
 		_warning "Use qBittorrent ${qbitversion}"
 	fi
@@ -789,7 +752,7 @@ WebUI\LocalHostAuth=false
 WebUI\Password_ha1=@ByteArray(${ha1pass})
 WebUI\Port=${PORT}
 WebUI\ServerDomains=*
-WebUI\UseUPnP=true
+WebUI\UseUPnP=false
 WebUI\Username=${username}
 
 [BitTorrent]
@@ -809,7 +772,7 @@ Session\SendBufferWatermarkFactor=50
 QBC
 		fi
 		
-		chown -R ${username}.${username} /home/${username}/.config/
+		chown -R ${username}:${username} /home/${username}/.config/
 		mkdir -p /home/${username}/qbwatch
 		chown ${username}: /home/${username}/qbwatch
 		mkdir -p /home/${username}/torrents/qbittorrent
@@ -861,22 +824,48 @@ location /qbittorrent/ {
 QBRP
 
 	BINPATH=$(which qbittorrent-nox)
-	cat >/etc/systemd/system/qbittorrent@.service <<QBS
+	if [[ $CODENAME == bionic ]]; then
+		cat >/etc/systemd/system/qbittorrent@.service <<QBS
 [Unit]
 Description=qBittorrent Daemon Service
 After=network.target
 
 [Service]
-Type=forking
+Environment="SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"
+Environment="SSL_CERT_DIR=/etc/ssl/certs"
+Type=simple
 User=%I
 LimitNOFILE=infinity
-ExecStart=${BINPATH} -d
+ExecStart=${BINPATH}
 ExecStop=/usr/bin/killall -w -s 9 ${BINPATH}
 TimeoutSec=300
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 QBS
+	else
+		cat >/etc/systemd/system/qbittorrent@.service <<QBS
+[Unit]
+Description=qBittorrent Daemon Service
+After=network.target
+
+[Service]
+Environment="SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"
+Environment="SSL_CERT_DIR=/etc/ssl/certs"
+Type=exec
+User=%I
+LimitNOFILE=infinity
+ExecStart=${BINPATH}
+ExecStop=/usr/bin/killall -w -s 9 ${BINPATH}
+TimeoutSec=300
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+QBS
+	fi
+
 	_execute "systemctl daemon-reload"
 	_execute "nginx -s reload"
 	_success "${APP_TITLE} configured."

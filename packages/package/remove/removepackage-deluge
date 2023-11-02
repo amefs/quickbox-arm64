@@ -4,17 +4,12 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.1.0
+# Current version:  v1.1.2
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
 #
-#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
-#
-#   You may copy, distribute and modify the software as long as you track
-#   changes/dates in source files. Any modifications to our software
-#   including (via compiler) GPL-licensed code must also be made available
-#   under the GPL along with build & install instructions.
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 #################################################################################
 ################################################################################
@@ -145,14 +140,17 @@ function _removeDepends() {
 		_execute "apt-get -y autoclean"
 	done
 	if [[ -f /install/.libtorrent-rasterbar-python.lock ]]; then
+		_execute "apt-mark unhold python-libtorrent"
 		_execute "apt-get -y purge python-libtorrent"
 		rm -f /install/.libtorrent-rasterbar-python.lock
 	fi
 	if [[ -f /install/.libtorrent-rasterbar-python3.lock ]]; then
+		_execute "apt-mark unhold python3-libtorrent"
 		_execute "apt-get -y purge python3-libtorrent"
 		rm -f /install/.libtorrent-rasterbar-python3.lock
 	fi
 	if [[ ! -f /install/.qbittorrent.lock ]]; then
+		_execute "apt-mark unhold libtorrent-rasterbar*"
 		_execute "apt-get -y purge libtorrent-rasterbar*"
 		_execute "apt-get -y autoremove"
 		_execute "apt-get -y autoclean"

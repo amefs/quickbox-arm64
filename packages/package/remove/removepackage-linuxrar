@@ -4,17 +4,12 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.1.0
+# Current version:  v1.1.2
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
 #
-#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
-#
-#   You may copy, distribute and modify the software as long as you track
-#   changes/dates in source files. Any modifications to our software
-#   including (via compiler) GPL-licensed code must also be made available
-#   under the GPL along with build & install instructions.
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 #################################################################################
 ################################################################################
@@ -71,6 +66,7 @@ function _error() {
 #################################################################################
 APP_TITLE="Linux RAR"
 APP_NAME="linuxrar"
+APP_BASEDEPS="unrar"
 
 APP_LOCK=.$APP_NAME.lock
 OUTTO=/srv/dashboard/db/output.log
@@ -139,7 +135,6 @@ function _removeDepends() {
 
 function _removeApp() {
 	_info "Removing ${APP_TITLE}..."
-	rm -rf /usr/local/bin/{unrar}
 	_success "${APP_TITLE} removed."
 }
 
@@ -182,6 +177,6 @@ done
 _lockCheck
 _setLock
 _removeInfo
-_removeApp
+_removeDepends
 _removeAppLock
 _lockCleanup

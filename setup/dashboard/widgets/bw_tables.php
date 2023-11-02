@@ -1,4 +1,6 @@
 <?php
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 require_once($_SERVER['DOCUMENT_ROOT'].'/inc/config.php');
 require_once($_SERVER['DOCUMENT_ROOT'].'/inc/localize.php');
 
@@ -134,6 +136,6 @@ get_vnstat_data();
       } elseif ($page === 't') {
           write_data_table(T('Top 10 days'), $top);
       }
-    ?>
+?>
   </div>
 </div>

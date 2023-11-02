@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 "use strict";
 
 $(document).ready(function () {
@@ -25,21 +27,11 @@ $(document).ready(function () {
         $("body").css({ overflow: "hidden" });
       }
     } else {
+      // eslint-disable-next-line object-shorthand
       $(".logopanel, .leftpanel").animate({ marginLeft: marginLeft }, "fast");
       $(".headerbar, .mainpanel").animate({ marginLeft: marginMain }, "fast");
     }
   }
-
-  /** PULSE A QUICK ACCESS PANEL **/
-
-  $(".panel-quick-page .panel").hover(
-    function () {
-      $(this).addClass("flip animated");
-    },
-    function () {
-      $(this).removeClass("flip animated");
-    }
-  );
 
   // Date Today in Notification
   $("#todayDay").text(getDayToday());

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import * as express from "express";
 import * as http from "http";
 import { Server as socketio } from "socket.io";
@@ -32,5 +34,5 @@ app.get("/", (req, res) => {
 });
 
 server.listen(8575, "127.0.0.1", () => {
-    console.log("quickbox-ws running...");
+    console.log("Quickbox-ws running...");
 });

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 /* global bootbox, AnsiUp, socket */
 "use strict";
 
@@ -5,6 +7,7 @@
 (function ($) {
   function showAlert (message) {
     bootbox.alert({
+      // eslint-disable-next-line object-shorthand
       message: message,
       backdrop: true,
       size: "large"

@@ -1,9 +1,11 @@
 <?php
-  require_once($_SERVER['DOCUMENT_ROOT'].'/inc/config.php');
-  require_once($_SERVER['DOCUMENT_ROOT'].'/inc/localize.php');
-  require_once($_SERVER['DOCUMENT_ROOT'].'/inc/info.package.php');
+// SPDX-License-Identifier: GPL-3.0-or-later
 
-  assert(isset($packageList));
+require_once($_SERVER['DOCUMENT_ROOT'].'/inc/config.php');
+require_once($_SERVER['DOCUMENT_ROOT'].'/inc/localize.php');
+require_once($_SERVER['DOCUMENT_ROOT'].'/inc/info.package.php');
+
+assert(isset($packageList));
 ?>
 
 
@@ -17,7 +19,7 @@
       <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
       <div align = "center"><?php echo T('PMC_NOTICE_TXT'); ?></div>
     </div>
-    <div class="table-responsive ps-container">
+    <div class="table-responsive ps">
       <table id="dataTable1" class="table table-bordered table-striped-col" style="font-size: 12px">
         <thead>
           <tr>

@@ -1,16 +1,18 @@
 <?php
-  require_once($_SERVER['DOCUMENT_ROOT'].'/inc/config.php');
-  require_once($_SERVER['DOCUMENT_ROOT'].'/inc/localize.php');
-  require_once($_SERVER['DOCUMENT_ROOT'].'/inc/info.system.php');
+// SPDX-License-Identifier: GPL-3.0-or-later
 
-  require($_SERVER['DOCUMENT_ROOT'].'/inc/panel.header.php');
-  require($_SERVER['DOCUMENT_ROOT'].'/inc/panel.menu.php');
+require_once($_SERVER['DOCUMENT_ROOT'].'/inc/config.php');
+require_once($_SERVER['DOCUMENT_ROOT'].'/inc/localize.php');
+require_once($_SERVER['DOCUMENT_ROOT'].'/inc/info.system.php');
 
-  assert(isset($version));
-  assert(isset($branch));
+require($_SERVER['DOCUMENT_ROOT'].'/inc/panel.header.php');
+require($_SERVER['DOCUMENT_ROOT'].'/inc/panel.menu.php');
 
-  $sysCpuInfo       = SystemInfo::cpuinfo();
-  $sysInterfaceInfo = SystemInfo::enuminterface();
+assert(isset($version));
+assert(isset($branch));
+
+$sysCpuInfo       = SystemInfo::cpuinfo();
+$sysInterfaceInfo = SystemInfo::enuminterface();
 ?>
 
 <div class="mainpanel">
@@ -41,8 +43,8 @@
                     <?php for ($i = 0; $i < count($sysInterfaceInfo); ++$i) { ?>
                     <tr>
                       <td style="font-size:14px;font-weight:bold;padding: 2px 2px 2px 12px"><?php echo $sysInterfaceInfo[$i]; ?></td>
-                      <td style="font-size:11px;padding: 2px 2px 2px 12px"><span class="text-success"><span id="NetOutSpeed<?php echo $i; ?>">0B/s</span></span></td>
-                      <td style="font-size:11px;padding: 2px 2px 2px 12px"><span class="text-primary"><span id="NetInputSpeed<?php echo $i; ?>">0B/s</span></span></td>
+                      <td style="font-size:11px;padding: 2px 2px 2px 12px"><span class="text-success"><span id="net_<?php echo $sysInterfaceInfo[$i]; ?>_tx">0B/s</span></span></td>
+                      <td style="font-size:11px;padding: 2px 2px 2px 12px"><span class="text-primary"><span id="net_<?php echo $sysInterfaceInfo[$i]; ?>_rx">0B/s</span></span></td>
                     </tr>
                     <?php } ?>
                   </tbody>
@@ -127,23 +129,23 @@
                 title="<?php echo T('CURRENT_VERSIONS_CHANGELOG'); ?>"
                 data-placement="top" class="label label-primary tooltips"
                 style="font-size:10px; padding-top:0; padding-bottom:0px; top: -2px; position: relative;"
-                target="_blank" rel="noopener">
+                target="_blank" rel="noopenner noreferrer">
                   QuickBox :: <span style="color: #fff;text-shadow: 0px 0px 6px #fff;"><?php echo "{$version}"; ?></span>
               </a>
             </h4>
           </div>
-          <div class="panel-body ps-container" style="max-height: 350px; padding: 0;">
+          <div class="panel-body ps" style="max-height: 350px; padding: 0;">
             <?php
-              $current_commit = shell_exec('git -C /etc/QuickBox/ rev-parse --short HEAD');
-            ?>
-            <?php if (is_string($current_commit)) { ?>
+              $current_commit = trim((string) shell_exec('git -C /etc/QuickBox/ rev-parse --short HEAD'));
+?>
+            <?php if ($current_commit !== '') { ?>
             <div class="alert alert-default" style="margin-bottom: 4px; text-align: center" role="alert">
                 <?php echo T('QUICKBOX_COMMIT'); ?>
                 <code>
-                  <a href="https://github.com/amefs/quickbox-lite/commit/<?php echo $current_commit; ?>" target="_blank" title="<?php echo T('CURRENT_COMMIT'); ?>" data-placement="top" class="tooltips">
+                  <a href="https://github.com/amefs/quickbox-arm64/commit/<?php echo $current_commit; ?>" target="_blank" rel="noopenner noreferrer" title="<?php echo T('CURRENT_COMMIT'); ?>" data-placement="top" class="tooltips">
                     <?php echo $current_commit; ?>
                   </a>...
-                  <a href="https://github.com/amefs/quickbox-lite/compare/<?php echo $current_commit; ?>...<?php echo $branch; ?>" target="_blank" title="<?php echo T('COMPARE_COMMITS'); ?>" data-placement="top" class="tooltips">
+                  <a href="https://github.com/amefs/quickbox-arm64/compare/<?php echo $current_commit; ?>...<?php echo $branch; ?>" target="_blank" rel="noopenner noreferrer" title="<?php echo T('COMPARE_COMMITS'); ?>" data-placement="top" class="tooltips">
                     <?php echo T('LATEST_COMMIT'); ?>
                   </a>
                 </code><br>

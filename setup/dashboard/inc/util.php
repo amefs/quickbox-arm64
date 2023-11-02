@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 error_reporting(\E_ERROR);
 if (function_exists('ini_set')) {
     ini_set('display_errors', '0');
@@ -69,13 +71,11 @@ function getUser() {
 /**
  * @param int    $timeout
  * @param int    $probability
- * @param string $cookie_domain
+ * @param string $cookie_path
  *
  * @return void
  */
-function session_start_timeout($timeout = 5, $probability = 100, $cookie_domain = '/') {
-    ini_set('session.gc_maxlifetime', (string) $timeout);
-    ini_set('session.cookie_lifetime', (string) $timeout);
+function session_start_timeout($timeout = 5, $probability = 1, $cookie_path = '/') {
     $save_path = ini_get('session.save_path');
     if ($save_path === '') {
         $save_path = $_SERVER['DOCUMENT_ROOT'].'/db';
@@ -86,14 +86,17 @@ function session_start_timeout($timeout = 5, $probability = 100, $cookie_domain 
             trigger_error("Failed to create session save path directory '{$path}'. Check permissions.", \E_USER_ERROR);
         }
     }
-    ini_set('session.save_path', $path);
-    ini_set('session.gc_probability', (string) $probability);
-    ini_set('session.gc_divisor', '100');
-    session_start();
     $session_name = session_name();
+    session_start([
+        'gc_maxlifetime'  => (string) $timeout,
+        'cookie_lifetime' => (string) $timeout,
+        'save_path'       => $path,
+        'gc_probability'  => (string) $probability,
+        'gc_divisor'      => '100',
+    ]);
     assert($session_name !== false);
     if (isset($_COOKIE[$session_name])) {
-        setcookie($session_name, $_COOKIE[$session_name], time() + $timeout, $cookie_domain);
+        setcookie($session_name, $_COOKIE[$session_name], time() + $timeout, $cookie_path);
     }
 }
 
@@ -144,7 +147,7 @@ function microtime_float() {
     $mtime = microtime();
     $mtime = explode(' ', $mtime);
 
-    return (float) ($mtime[1]) + (float) ($mtime[0]);
+    return (float) $mtime[1] + (float) $mtime[0];
 }
 
 /**

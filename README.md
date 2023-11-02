@@ -22,9 +22,7 @@ This project is a modified version of QuickBox community edition. Most functions
 
 ## Script status
 
-![Version](https://img.shields.io/badge/version-1.1.0-orange?style=flat-square)![GNU v3.0 License](https://img.shields.io/badge/license-GNU%20v3.0%20License-blue.svg?style=flat-square)
-
-This script is still in development and cannot be guaranteed to be stable, please use the Wiki/issue to find a solution. It has only been tested on BPI-M5 platform.
+![Version](https://img.shields.io/badge/version-1.1.2-orange?style=flat-square)![GNU v3.0 License](https://img.shields.io/badge/license-GNU%20v3.0%20License-blue.svg?style=flat-square)
 
 ---
 
@@ -40,11 +38,13 @@ Hard ware requirement:
 
 OS Support (aarch64 only):
 
-![Ubuntu20.04](https://img.shields.io/badge/Ubuntu%2020.04-passing-brightgreen.svg?style=flat-square)![Ubuntu18.04](https://img.shields.io/badge/Ubuntu%2018.04-passing-brightgreen.svg?style=flat-square)![Debian10](https://img.shields.io/badge/Debian%2010-passing-brightgreen.svg?style=flat-square)
+![Ubuntu22.04](https://img.shields.io/badge/Ubuntu%2022.04-passing-brightgreen.svg?style=flat-square)![Ubuntu20.04](https://img.shields.io/badge/Ubuntu%2020.04-passing-brightgreen.svg?style=flat-square)![Ubuntu18.04](https://img.shields.io/badge/Ubuntu%2018.04-EOL-red.svg?style=flat-square)![Ubuntu16.04](https://img.shields.io/badge/Ubuntu%2016.04-EOL-red.svg?style=flat-square)
 
-- Server Support:
+![Debian12](https://img.shields.io/badge/Debian%2012-passing-brightgreen.svg?style=flat-square)![Debian11](https://img.shields.io/badge/Debian%2011-passing-brightgreen.svg?style=flat-square)![Debian10](https://img.shields.io/badge/Debian%2010-passing-brightgreen.svg?style=flat-square)![Debian9](https://img.shields.io/badge/Debian%209-discontinue-orange.svg?style=flat-square)
 
-  - Server based on aarch64
+Server Support:
+
+- Server based on aarch64
 
 ### install the project
 

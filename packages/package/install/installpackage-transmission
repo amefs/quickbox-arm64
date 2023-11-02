@@ -4,17 +4,12 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.1.0
+# Current version:  v1.1.2
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
 #
-#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
-#
-#   You may copy, distribute and modify the software as long as you track
-#   changes/dates in source files. Any modifications to our software
-#   including (via compiler) GPL-licensed code must also be made available
-#   under the GPL along with build & install instructions.
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 #################################################################################
 #################################################################################
@@ -308,6 +303,9 @@ function _installApp() {
 			_execute "apt-get -y --allow-unauthenticated -f install /tmp/${DEB}"
 			rm -rf /tmp/${DEB}
 		done
+		_execute "apt-mark hold transmission-cli"
+		_execute "apt-mark hold transmission-common"
+		_execute "apt-mark hold transmission-daemon"
 	fi
 	_success "${APP_TITLE} Built."
 }
@@ -426,11 +424,11 @@ TRC
 		mkdir -p /home/${username}/torrents/transmission
 		mkdir -p /home/${username}/trwatch
 		chmod -R 755 /home/${username}/.config
-		chown -R ${username}.${username} /home/${username}/.config/
+		chown -R ${username}:${username} /home/${username}/.config/
 		chmod -R 755 /home/${username}/torrents/transmission
-		chown -R ${username}.${username} /home/${username}/torrents
+		chown -R ${username}:${username} /home/${username}/torrents
 		chmod -R 755 /home/${username}/trwatch
-		chown -R ${username}.${username} /home/${username}/trwatch
+		chown -R ${username}:${username} /home/${username}/trwatch
 
 		# create reverse proxy
 		cat >/etc/nginx/conf.d/${username}.transmission.conf <<EOF

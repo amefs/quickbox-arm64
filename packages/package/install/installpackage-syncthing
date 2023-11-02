@@ -4,17 +4,12 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.1.0
+# Current version:  v1.1.2
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
 #
-#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
-#
-#   You may copy, distribute and modify the software as long as you track
-#   changes/dates in source files. Any modifications to our software
-#   including (via compiler) GPL-licensed code must also be made available
-#   under the GPL along with build & install instructions.
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 #################################################################################
 ################################################################################
@@ -130,8 +125,8 @@ Please wait until the process is completed
 
 function _installAddSources() {
 	_info "Adding additional keys and sources ${APP_TITLE}..."
-	curl -s https://syncthing.net/release-key.txt | sudo apt-key add - >/dev/null 2>&1
-	echo "deb http://apt.syncthing.net/ syncthing release" >/etc/apt/sources.list.d/syncthing.list
+	curl -o /usr/share/keyrings/syncthing-archive-keyring.gpg https://syncthing.net/release-key.gpg >/dev/null 2>&1
+	echo "deb [signed-by=/usr/share/keyrings/syncthing-archive-keyring.gpg] https://apt.syncthing.net/ syncthing stable" | sudo tee /etc/apt/sources.list.d/syncthing.list >/dev/null 2>&1
 	_success "Keys and sources added."
 }
 
@@ -230,7 +225,7 @@ EOF
 
 		# create default config
 		mkdir -p /home/${username}/.config/syncthing
-		chown -R ${username}.${username} /home/${username}/.config/syncthing
+		chown -R ${username}:${username} /home/${username}/.config/syncthing
 		sudo -u ${username} -H bash -c "/usr/bin/syncthing -generate=/home/${username}/.config/syncthing" >>"${OUTTO}" 2>&1
 
 		# set a port for WebUI
@@ -239,7 +234,7 @@ EOF
 			sed -i "s/<\/gui>/    <insecureSkipHostcheck>true<\/insecureSkipHostcheck>\n    <\/gui>/g" /home/${username}/.config/syncthing/config.xml
 		fi
 		chmod -R 755 /home/${username}/.config/$APP_NAME
-		chown -R ${username}.${username} /home/${username}/.config/$APP_NAME
+		chown -R ${username}:${username} /home/${username}/.config/$APP_NAME
 
 		cat >/etc/nginx/apps/${username}.$APP_NAME.conf <<EOF
 location /${username}.syncthing/ {

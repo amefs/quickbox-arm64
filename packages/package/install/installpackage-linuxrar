@@ -4,19 +4,19 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.1.0
+# Current version:  v1.1.2
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
 #
-#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
-#
-#   You may copy, distribute and modify the software as long as you track
-#   changes/dates in source files. Any modifications to our software
-#   including (via compiler) GPL-licensed code must also be made available
-#   under the GPL along with build & install instructions.
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 #################################################################################
+#################################################################################
+# CORE VARIABLE
+#################################################################################
+DISTRO=$(lsb_release -is)
+
 ################################################################################
 # HELP FUNCTIONS
 ################################################################################
@@ -71,7 +71,7 @@ function _error() {
 #################################################################################
 APP_TITLE="Linux RAR"
 APP_NAME="linuxrar"
-APP_BASEDEPS=""
+APP_BASEDEPS="unrar"
 
 APP_LOCK=.$APP_NAME.lock
 OUTTO=/srv/dashboard/db/output.log
@@ -126,6 +126,17 @@ Please wait until the process is completed
 
 function _installAddSources() {
 	_info "Adding additional keys and sources ${APP_TITLE}..."
+	if [[ ${DISTRO} == "Ubuntu" ]]; then
+		if ! grep -qE '^deb .* multiverse(\s|$)' /etc/apt/sources.list; then
+			repo=$(awk '/^deb/ {print $2}' /etc/apt/sources.list | head -n 1)
+			echo -e "\ndeb "${repo}" $(lsb_release -cs) multiverse" | tee -a /etc/apt/sources.list >/dev/null 2>&1
+		fi
+	elif [[ ${DISTRO} == "Debian" ]]; then
+		if ! grep -qE '^deb .* non-free(\s|$)' /etc/apt/sources.list; then
+			repo=$(awk '/^deb/ {print $2}' /etc/apt/sources.list | head -n 1)
+			echo -e "\ndeb "${repo}" $(lsb_release -cs) non-free" | tee -a /etc/apt/sources.list >/dev/null 2>&1
+		fi
+	fi
 	_success "Keys and sources added."
 }
 
@@ -171,18 +182,6 @@ function _installDepends() {
 		_error "${APP_TITLE} dependencies failed to install."
 		exit 1
 	fi
-}
-
-function _installApp() {
-	_info "Building ${APP_TITLE}..."
-	cd /tmp
-	wget -q -O unrar.gz https://www.rarlab.com/rar/unrar-5.5.0-arm.gz
-	_excute "gunzip unrar.gz"
-	\cp -f /tmp/unrar /usr/local/bin/unrar
-	chmod +x /usr/local/bin/unrar
-	cd /tmp
-	rm -rf {unrar,unrar.gz}
-	_success "${APP_TITLE} Built."
 }
 
 function _configureApp() {
@@ -236,6 +235,8 @@ done
 _lockCheck
 _setLock
 _installInfo
-_installApp
+_installAddSources
+_installSystemUpdates
+_installDepends
 _installAppLock
 _lockCleanup

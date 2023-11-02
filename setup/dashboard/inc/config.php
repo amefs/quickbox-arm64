@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 if (isset($_SESSION)) {
     session_destroy();
 }
@@ -8,7 +10,7 @@ require_once($_SERVER['DOCUMENT_ROOT'].'/inc/util.php');
 
 session_start_timeout(5);
 
-$version = 'v1.1.0';
+$version = 'v1.1.2';
 $panel   = [
     'name'        => 'QuickBox ARM64',
     'author'      => 'Everyone that contributes to the open QuickBox project!',

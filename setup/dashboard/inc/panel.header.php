@@ -1,10 +1,10 @@
 <?php
-require_once($_SERVER['DOCUMENT_ROOT'].'/inc/info.system.php');
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 require_once($_SERVER['DOCUMENT_ROOT'].'/inc/config.php');
 
 assert(isset($panel));
 
-$netinfo = SystemInfo::netinfo();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -26,30 +26,22 @@ $netinfo = SystemInfo::netinfo();
   <link rel="mask-icon" href="img/favicon/safari-pinned-tab.svg" color="#5bbad5">
   <!-- CSS STYLESHEETS AND ASSETTS -->
   <link rel="stylesheet" href="lib/jquery-ui/jquery-ui.min.css">
-  <link rel="stylesheet" href="lib/hover.css/hover-min.css">
   <link rel="stylesheet" href="lib/jquery-toggles/toggles-full.css">
   <link rel="stylesheet" href="lib/jquery-gritter/css/jquery.gritter.css">
   <link rel="stylesheet" href="lib/datatables/css/dataTables.bootstrap.min.css">
   <link rel="stylesheet" href="lib/perfect-scrollbar/css/perfect-scrollbar.min.css">
   <link rel="stylesheet" href="lib/animate.css/animate.min.css">
   <link rel="stylesheet" href="lib/font-awesome/css/font-awesome.min.css">
-  <link rel="stylesheet" href="lib/ionicons/css/ionicons.css">
   <link rel="stylesheet" href="lib/select2/select2.min.css">
   <link rel="stylesheet" href="lib/lobipanel/css/lobipanel.min.css"/>
   <link rel="stylesheet" href="skins/quick.css">
   <!-- JAVASCRIPT -->
   <script src="lib/jquery/jquery.min.js"></script>
 
-  <script type="text/javascript">
-    window.NetOutSpeed = <?php echo json_encode($netinfo['Transmit'] ?? []); ?>;
-    window.NetInputSpeed = <?php echo json_encode($netinfo['Receive'] ?? []); ?>;
-    window.NetTimeStamp = <?php echo json_encode(microtime(true)); ?>;
-  </script>
-
   <style>
     <?php if (file_exists($_SERVER['DOCUMENT_ROOT'].'/custom/custom.css')) {
-    include($_SERVER['DOCUMENT_ROOT'].'/custom/custom.css');
-}
-    ?>
+        include($_SERVER['DOCUMENT_ROOT'].'/custom/custom.css');
+    }
+?>
   </style>
 </head>

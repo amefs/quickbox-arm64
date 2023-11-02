@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import axios from "axios";
 import * as https from "https";
 import { Socket } from "socket.io";
@@ -25,7 +27,7 @@ const parseUrl = (url: string) => {
         u = new URL(url, "http://localhost");
     }
     const pathName = u.pathname;
-    const args = {};
+    const args: {[key: string]: string} = {};
     u.searchParams.forEach((v, k) => {
         args[k] = v;
     });

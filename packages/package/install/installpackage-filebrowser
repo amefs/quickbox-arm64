@@ -4,17 +4,12 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.1.0
+# Current version:  v1.1.2
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
 #
-#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
-#
-#   You may copy, distribute and modify the software as long as you track
-#   changes/dates in source files. Any modifications to our software
-#   including (via compiler) GPL-licensed code must also be made available
-#   under the GPL along with build & install instructions.
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 #################################################################################
 #################################################################################
@@ -229,7 +224,7 @@ function _configureApp() {
 
 		mkdir -p /home/${username}/.config/filebrowser/
 		mkdir -p /home/${username}/.config/filebrowser/log
-		chown ${username}.${username} -R /home/${username}/.config/filebrowser/
+		chown ${username}:${username} -R /home/${username}/.config/filebrowser/
 		sudo -u ${username} -H bash -c "/usr/local/bin/filebrowser -d /home/${username}/.config/filebrowser/filebrowser.db config init" >>"${OUTTO}" 2>&1
 		sudo -u ${username} -H bash -c "/usr/local/bin/filebrowser -d /home/${username}/.config/filebrowser/filebrowser.db config set \
 		--address ${APP_HOST} \
@@ -240,7 +235,7 @@ function _configureApp() {
 		--auth.method=noauth \
 		--baseurl=\"/filebrowser/\"" >>"${OUTTO}" 2>&1
 		sudo -u ${username} -H bash -c "/usr/local/bin/filebrowser -d /home/${username}/.config/filebrowser/filebrowser.db users add ${username} ${password} --perm.admin" >>"${OUTTO}" 2>&1
-		chown ${username}.${username} -R /home/${username}/.config/filebrowser/
+		chown ${username}:${username} -R /home/${username}/.config/filebrowser/
 
 		# Generate reverse proxy upstream
 		cat >/etc/nginx/conf.d/${username}.filebrowser.conf <<EOF
@@ -256,6 +251,7 @@ location /filebrowser {
 }
 
 location /filebrowser/ {
+  client_max_body_size 0;
   auth_basic "Password Required";
   auth_basic_user_file /etc/htpasswd.d/htpasswd.$remote_user;
   rewrite ^/filebrowser/(.*) /$1 break;

@@ -1,5 +1,7 @@
 <?php
 
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 class SystemInfo {
     /**
      * @return string
@@ -62,7 +64,7 @@ class SystemInfo {
         foreach ($info as $line) {
             $ar_buf          = explode(':', $line);
             $ar_buf          = array_map('trim', $ar_buf);
-            $res[$ar_buf[0]] = (float) ($ar_buf[1]);
+            $res[$ar_buf[0]] = (float) $ar_buf[1];
         }
         $res['MemUsed']    = $res['MemTotal'] - $res['MemFree'];
         $res['MemPercent'] = $res['MemUsed'] / $res['MemTotal'] * 100;
@@ -79,25 +81,20 @@ class SystemInfo {
     }
 
     /**
-     * @return array<string,array<int>>
+     * @return array<string,array<string,int>>
      */
     public static function netinfo() {
-        $info = @file('/proc/net/dev');
-        $res  = [];
-        if (!is_array($info)) {
-            return $res;
-        }
+        $interfaces = self::enuminterface();
+        $res        = [];
+        foreach ($interfaces as $interface) {
+            $rx_bytes = (int) @file_get_contents("/sys/class/net/{$interface}/statistics/rx_bytes");
+            $tx_bytes = (int) @file_get_contents("/sys/class/net/{$interface}/statistics/tx_bytes");
 
-        $Receive  = [];
-        $Transmit = [];
-
-        for ($i = 2; $i < count($info); ++$i) {
-            preg_match_all("/(?<name>[^\s]+):[\s]{0,}(?<rx_bytes>\d+)\s+(?:\d+\s+){7}(?<tx_bytes>\d+)\s+/", $info[$i], $group);
-            $Receive[$i - 2]  = (int) $group['rx_bytes'][0]; // Receive data in bytes
-            $Transmit[$i - 2] = (int) $group['tx_bytes'][0]; // Transmit data in bytes
+            $res[$interface] = [
+                'rx_bytes' => $rx_bytes, // Receive data in bytes
+                'tx_bytes' => $tx_bytes, // Transmit data in bytes
+            ];
         }
-        $res['Receive']  = $Receive;
-        $res['Transmit'] = $Transmit;
 
         return $res;
     }
@@ -106,16 +103,16 @@ class SystemInfo {
      * @return array<int,string>
      */
     public static function enuminterface() {
-        $info = @file('/proc/net/dev');
-        $res  = [];
-        if (!is_array($info)) {
-            return $res;
-        }
-        for ($i = 2; $i < count($info); ++$i) {
-            preg_match_all("/(?<name>[^\s]+):[\s]{0,}(?<rx_bytes>\d+)\s+(?:\d+\s+){7}(?<tx_bytes>\d+)\s+/", $info[$i], $group);
-            $res[$i - 2] = $group['name'][0];
+        $output = shell_exec('basename -a /sys/class/net/*');
+        if (!is_string($output)) {
+            return [];
         }
 
-        return $res;
+        $ret = preg_split("/\n/", $output, -1, \PREG_SPLIT_NO_EMPTY);
+        if ($ret === false) {
+            return [];
+        }
+
+        return $ret;
     }
 }

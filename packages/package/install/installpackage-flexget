@@ -4,17 +4,12 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.1.0
+# Current version:  v1.1.2
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
 #
-#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
-#
-#   You may copy, distribute and modify the software as long as you track
-#   changes/dates in source files. Any modifications to our software
-#   including (via compiler) GPL-licensed code must also be made available
-#   under the GPL along with build & install instructions.
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 #################################################################################
 #################################################################################
@@ -168,7 +163,7 @@ function _initPyVenv() {
 	elif [[ ${major_version} == "3" ]]; then
 		_execute "/opt/pyenv/versions/${version}/bin/python3 -m venv $path"
 	fi
-	chown -R ${user}.${user} $path
+	chown -R ${user}:${user} $path
 	_success "Python virtual environment setup finished"
 }
 
@@ -236,7 +231,7 @@ function _installApp() {
 	# Install for single user
 	_installPy 3.9.13
 	_initPyVenv 3.9.13 /home/${username}/.local/flexget3 ${username}
-	chown -R ${username}.${username} /home/${username}/.local
+	chown -R ${username}:${username} /home/${username}/.local
 	cd /home/${username}/.local/flexget3
 	_info "Installing requirements... "
 	sudo -u ${username} -H bash -c "wget -q -O get-pip.py https://bootstrap.pypa.io/get-pip.py" >>"${OUTTO}" 2>&1
@@ -453,7 +448,7 @@ tasks:
 #       minutes: 20
 EOF
 
-	chown ${username}.${username} -R /home/${username}/.config/flexget/
+	chown ${username}:${username} -R /home/${username}/.config/flexget/
 	sudo -u ${username} -H bash -c "${pybin}/flexget -c /home/${username}/.config/flexget/config.yml web passwd ${password}"
 
 	cat >/etc/nginx/apps/${username}.flexget.conf <<EOF

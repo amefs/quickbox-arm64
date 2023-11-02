@@ -4,17 +4,12 @@
 #
 # GitHub:   https://github.com/amefs/quickbox-arm64
 # Author:   Amefs
-# Current version:  v1.1.0
+# Current version:  v1.1.2
 # URL:
 # Original Repo:    https://github.com/QuickBox/QB
 # Credits to:       QuickBox.io
 #
-#   Licensed under GNU General Public License v3.0 GPL-3 (in short)
-#
-#   You may copy, distribute and modify the software as long as you track
-#   changes/dates in source files. Any modifications to our software
-#   including (via compiler) GPL-licensed code must also be made available
-#   under the GPL along with build & install instructions.
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # shellcheck disable=SC2046,SC1090,SC2181,SC2059
 #################################################################################
@@ -109,11 +104,11 @@ function _init() {
 		DEBIAN_FRONTEND=noninteractive apt-get -qq -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >/dev/null 2>&1
 		echo -e "XXX\n10\nPreparing scripts... \nXXX"
 		if [[ $DISTRO == Ubuntu && $CODENAME =~ ("bionic"|"focal") ]]; then
-			apt-get -y install git curl wget dos2unix python apt-transport-https software-properties-common dnsutils unzip jq >/dev/null 2>&1
+			apt-get -y install git curl wget dos2unix apt-transport-https software-properties-common dnsutils unzip jq >/dev/null 2>&1
 		elif [[ $DISTRO == Ubuntu && $CODENAME =~ ("jammy") ]]; then
-			apt-get -y install git curl wget dos2unix python3 apt-transport-https software-properties-common dnsutils unzip jq >/dev/null 2>&1
+			apt-get -y install git curl wget dos2unix apt-transport-https software-properties-common dnsutils unzip jq >/dev/null 2>&1
 		elif [[ $DISTRO == Debian ]]; then
-			apt-get -y install git curl wget dos2unix python apt-transport-https software-properties-common gnupg2 ca-certificates dnsutils unzip jq >/dev/null 2>&1
+			apt-get -y install git curl wget dos2unix apt-transport-https software-properties-common gnupg2 ca-certificates dnsutils unzip jq >/dev/null 2>&1
 		fi
 		echo -e "XXX\n20\nPreparing scripts... \nXXX"
 		dos2unix $(find ${local_prefix} -type f) >/dev/null 2>&1
@@ -206,7 +201,7 @@ function _checkdistro() {
 		whiptail --title "$ERROR_TITLE_OS" --msgbox "${ERROR_TEXT_DESTRO_1}${DISTRO}${ERROR_TEXT_DESTRO_2}" --ok-button "$BUTTON_OK" 8 72
 		_defaultcolor
 		exit 1
-	elif [[ ! "$CODENAME" =~ ("bionic"|"buster"|"bullseye"|"focal"|"jammy") ]]; then
+	elif [[ ! "$CODENAME" =~ ("bionic"|"buster"|"bullseye"|"focal"|"jammy"|"bookworm") ]]; then
 		_errorcolor
 		whiptail --title "$ERROR_TITLE_OS" --msgbox "${ERROR_TEXT_CODENAME_1}${DISTRO}${ERROR_TEXT_CODENAME_2}" --ok-button "$BUTTON_OK" 8 72
 		_defaultcolor
@@ -677,9 +672,9 @@ function _addPHP() {
 		LC_ALL=en_US.UTF-8 add-apt-repository ppa:ondrej/php -y >/dev/null 2>&1
 	elif [[ "$DISTRO" =~ ("Debian"|"Raspbian") ]]; then
 		# add php for debian
-		printf "\n" | wget -q https://packages.sury.org/php/apt.gpg -O- | apt-key add - >/dev/null 2>&1
+		wget -q https://packages.sury.org/php/apt.gpg -O /etc/apt/trusted.gpg.d/deb.sury.org-php.gpg 2>&1
 		cat >/etc/apt/sources.list.d/php.list <<DPHP
-deb https://packages.sury.org/php/ $(lsb_release -sc) main
+deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/trusted.gpg.d/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main
 DPHP
 	fi
 	DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >>"${OUTTO}" 2>&1
@@ -714,7 +709,7 @@ function _preinsngx() {
 	DEBIAN_FRONTEND=noninteractive apt-get -y --allow-unauthenticated -f install nginx >>"${OUTTO}" 2>&1
 	systemctl stop nginx.service >>"${OUTTO}" 2>&1
 	mkdir -p /var/log/nginx/
-	chown -R www-data.www-data /var/log/nginx/
+	chown -R www-data:www-data /var/log/nginx/
 	# disable ipv6 if not exist
 	#shellcheck disable=SC2031
 	if [[ -z "${IPV6}" ]]; then
@@ -727,7 +722,7 @@ function _preinsngx() {
 function _dependency() {
 	_addPHP
 	_preinsngx
-	DEPLIST="sudo at bc build-essential curl wget subversion ssl-cert php7.4-cli php7.4-fpm php7.4 php7.4-dev php7.4-memcached memcached php7.4-curl php7.4-gd php7.4-geoip php7.4-json php7.4-mbstring php7.4-opcache php7.4-xml php7.4-xmlrpc php7.4-zip libfcgi0ldbl mcrypt libmcrypt-dev nano python-dev unzip htop iotop vnstat vnstati automake make openssl net-tools debconf-utils ntp rsync screenfetch"
+	DEPLIST="sudo at bc build-essential curl wget subversion ssl-cert php7.4-cli php7.4-fpm php7.4 php7.4-dev php7.4-memcached memcached php7.4-curl php7.4-gd php7.4-geoip php7.4-json php7.4-mbstring php7.4-opcache php7.4-xml php7.4-xmlrpc php7.4-zip libfcgi0ldbl mcrypt libmcrypt-dev nano unzip htop iotop vnstat vnstati automake make openssl net-tools debconf-utils ntp rsync screenfetch"
 	for depend in $DEPLIST; do
 		# shellcheck disable=SC2154
 		echo -e "XXX\n12\n$INFO_TEXT_PROGRESS_Extra_2${depend}\nXXX"
@@ -741,11 +736,7 @@ function _dependency() {
 
 function _insngx() {
 	rm -rf /etc/nginx/nginx.conf
-	if [[ $CODENAME =~ ("bionic"|"stretch"|"buster"|"focal") ]]; then
-		cp ${local_setup_template}nginx/nginx.conf.new.template /etc/nginx/nginx.conf
-	else
-		cp ${local_setup_template}nginx/nginx.conf.old.template /etc/nginx/nginx.conf
-	fi
+	cp ${local_setup_template}nginx/nginx.conf.new.template /etc/nginx/nginx.conf
 
 	rm -rf /etc/nginx/sites-enabled/default
 	cp ${local_setup_template}nginx/default.template /etc/nginx/sites-enabled/default
@@ -798,7 +789,7 @@ function _insngx() {
 	fi
 
 	mkdir -p /var/log/nginx/
-	chown -R www-data.www-data /var/log/nginx/
+	chown -R www-data:www-data /var/log/nginx/
 	systemctl restart nginx
 	systemctl restart php7.4-fpm
 }
@@ -806,27 +797,11 @@ function _insngx() {
 function _insnodejs() {
 	# install Nodejs for background service
 	cd /tmp || exit 1
-	curl -sL https://deb.nodesource.com/setup_14.x -o nodesource_setup.sh
-	bash nodesource_setup.sh >>"${OUTTO}" 2>&1
-	exitstatus=$?
-	counter=0
-	while [[ ${exitstatus} -eq 1 ]]; do
-		if [[ ${counter} -gt 2 ]]; then
-			_errorcolor
-			echo -e "XXX\n00\n${ERROR_TEXT_NODEJS}\nXXX"
-			_defaultcolor
-			echo ">> ${ERROR_TEXT_NODEJS}" >>"${OUTTO}" 2>&1
-			exit 1
-		else
-			bash nodesource_setup.sh >>"${OUTTO}" 2>&1
-			exitstatus=$?
-			((counter++))
-		fi
-	done
+	curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/nodesource.gpg >>"/dev/null" 2>&1
+	NODE_MAJOR=18
+	echo "deb [signed-by=/etc/apt/trusted.gpg.d/nodesource.gpg] https://deb.nodesource.com/node_"${NODE_MAJOR}".x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list >>"/dev/null" 2>&1
+	DEBIAN_FRONTEND=noninteractive apt-get -yqq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" update >/dev/null 2>&1
 	apt-get install -y nodejs >>"${OUTTO}" 2>&1
-	if [[ -f /tmp/nodesource_setup.sh ]]; then
-		rm nodesource_setup.sh
-	fi
 }
 
 function _webconsole() {
@@ -1336,7 +1311,7 @@ while true; do
 		fi
 		shift
 		;;
-	-u | --user)
+	-u | --username)
 		onekey=1
 		username="$2"
 		count=0
