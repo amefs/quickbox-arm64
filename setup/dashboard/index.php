@@ -165,6 +165,6 @@ $sysInterfaceInfo = SystemInfo::enuminterface();
 </div><!-- mainpanel -->
 
 <?php
-  require($_SERVER['DOCUMENT_ROOT'].'/inc/panel.scripts.php');
-  require($_SERVER['DOCUMENT_ROOT'].'/inc/panel.end.php');
+require($_SERVER['DOCUMENT_ROOT'].'/inc/panel.scripts.php');
+require($_SERVER['DOCUMENT_ROOT'].'/inc/panel.end.php');
 ?>
